@@ -131,6 +131,9 @@ void test_parse_simple_sequence(void) {
     // The parser creates a mapping with a sequence inside
     const char *yaml = "items:\n  - item1\n  - item2\n  - 42";
     doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
+    if (!doc) {
+        printf("ERROR: Failed to parse sequence. Error: %s at pos %zu\n", err.msg, err.pos);
+    }
     TEST_ASSERT_NOT_NULL_MESSAGE(doc, err.msg);
     
     const yyaml_node *root = yyaml_doc_get_root(doc);
@@ -222,11 +225,17 @@ void test_write_sequence(void) {
     // Test writing a nested sequence
     const char *yaml = "items:\n  - a\n  - b\n  - c";
     doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
+    if (!doc) {
+        printf("ERROR: Failed to parse sequence for writing. Error: %s at pos %zu\n", err.msg, err.pos);
+    }
     TEST_ASSERT_NOT_NULL(doc);
     
     char *output = NULL;
     size_t output_len = 0;
     bool result = yyaml_write(doc, &output, &output_len, NULL, &err);
+    if (!result) {
+        printf("ERROR: Failed to write sequence. Error: %s\n", err.msg);
+    }
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_NOT_NULL(output);
     
