@@ -31,3 +31,8 @@ install(DIRECTORY includes/
     DESTINATION include
     FILES_MATCHING PATTERN "*.h"
 )
+
+# Add tests directory
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
+    add_subdirectory(tests)
+endif()
