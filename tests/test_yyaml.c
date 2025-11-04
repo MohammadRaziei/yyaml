@@ -128,7 +128,7 @@ void test_parse_quoted_string(void) {
 
 // Test sequence parsing
 void test_parse_simple_sequence(void) {
-    // Sequences at root level don't seem to be supported, test with nested sequence
+    // The parser creates a mapping with a sequence inside
     const char *yaml = "items:\n  - item1\n  - item2\n  - 42";
     doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
     TEST_ASSERT_NOT_NULL_MESSAGE(doc, err.msg);
@@ -184,16 +184,8 @@ void test_parse_simple_mapping(void) {
 
 // Test error handling
 void test_parse_invalid_yaml(void) {
-    const char *yaml = "invalid: yaml: content";
-    doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
-    // This YAML might actually be valid for the parser, so let's test with something definitely invalid
-    if (doc) {
-        yyaml_doc_free(doc);
-        doc = NULL;
-    }
-    
-    // Test with definitely invalid YAML
-    const char *invalid_yaml = "invalid\tcontent"; // tabs are not supported
+    // Test with malformed YAML that should definitely fail
+    const char *invalid_yaml = "key: value\n  - item"; // mixed mapping and sequence without proper structure
     doc = yyaml_read(invalid_yaml, strlen(invalid_yaml), NULL, &err);
     TEST_ASSERT_NULL(doc);
     TEST_ASSERT_NOT_EQUAL(0, err.pos);
