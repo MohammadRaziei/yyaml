@@ -9,14 +9,28 @@ add_executable(yyaml_tests
     test_yyaml.c
 )
 
+# Create debug executable
+add_executable(debug_yaml
+    debug_yaml.c
+)
+
 # Link with Unity and yyaml libraries
 target_link_libraries(yyaml_tests
     Unity
     yyaml
 )
 
+target_link_libraries(debug_yaml
+    yyaml
+)
+
 # Include directories
 target_include_directories(yyaml_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/bundled
+    ${CMAKE_SOURCE_DIR}/includes
+)
+
+target_include_directories(debug_yaml PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/bundled
     ${CMAKE_SOURCE_DIR}/includes
 )
