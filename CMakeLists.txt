@@ -32,6 +32,9 @@ install(DIRECTORY includes/
     FILES_MATCHING PATTERN "*.h"
 )
 
+# Enable testing
+enable_testing()
+
 # Add tests directory
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
     add_subdirectory(tests)
