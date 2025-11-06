@@ -1,0 +1,27 @@
+# Various sequence formats
+simple_list:
+  - apple
+  - banana
+  - cherry
+
+mixed_types:
+  - 1
+  - "two"
+  - 3.0
+  - true
+  - null
+
+nested_sequences:
+  - [1, 2, 3]
+  - [a, b, c]
+  - []
+
+inline_sequence: [red, green, blue]
+
+empty_sequence: []
+
+sequence_of_maps:
+  - name: Alice
+    age: 25
+  - name: Bob
+    age: 30

@@ -1,0 +1,46 @@
+# Various mapping formats
+simple_map:
+  name: John Doe
+  age: 30
+  active: true
+
+nested_maps:
+  person:
+    name: Alice
+    address:
+      street: 123 Main St
+      city: Anytown
+      country: USA
+
+mixed_content:
+  string_value: hello
+  number_value: 42
+  float_value: 3.14
+  boolean_value: false
+  null_value: null
+  list_value: [1, 2, 3]
+  map_value:
+    key1: value1
+    key2: value2
+
+empty_map: {}
+
+complex_structure:
+  users:
+    - name: User1
+      permissions: [read, write]
+      settings:
+        theme: dark
+        notifications: true
+    - name: User2
+      permissions: [read]
+      settings:
+        theme: light
+        notifications: false
+  config:
+    database:
+      host: localhost
+      port: 5432
+      credentials:
+        username: admin
+        password: secret

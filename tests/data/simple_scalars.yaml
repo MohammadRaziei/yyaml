@@ -1,0 +1,12 @@
+# Simple scalar values
+null_value: null
+boolean_true: true
+boolean_false: false
+integer_positive: 42
+integer_negative: -123
+float_number: 3.14159
+scientific_notation: 1.23e+4
+string_simple: hello world
+string_quoted: "quoted string"
+string_single_quoted: 'single quoted'
+empty_string: ""
