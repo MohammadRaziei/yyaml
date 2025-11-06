@@ -144,7 +144,7 @@ void test_parse_simple_sequence(void) {
     TEST_ASSERT_NOT_NULL(items);
     TEST_ASSERT_EQUAL(YYAML_SEQUENCE, items->type);
     TEST_ASSERT_EQUAL(3, yyaml_seq_len(items));
-    
+
     const yyaml_node *item1 = yyaml_seq_get(doc, items, 0);
     TEST_ASSERT_NOT_NULL(item1);
     TEST_ASSERT_EQUAL(YYAML_STRING, item1->type);

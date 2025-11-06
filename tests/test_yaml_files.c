@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <sys/stat.h>
+#include <limits.h>
 
 // Test fixture
 static yyaml_doc *doc = NULL;
@@ -23,8 +24,44 @@ void tearDown(void) {
 }
 
 // Helper function to read file content
+static void build_full_path(char *buffer, size_t buffer_size, const char *relative) {
+    const char *this_file = __FILE__;
+    const char *last_slash = strrchr(this_file, '/');
+    size_t dir_len = 0;
+
+    if (last_slash) {
+        dir_len = (size_t)(last_slash - this_file + 1);
+        if (dir_len >= buffer_size) {
+            dir_len = buffer_size - 1;
+        }
+        memcpy(buffer, this_file, dir_len);
+    }
+
+    buffer[dir_len] = '\0';
+
+    if (relative) {
+        size_t remaining = buffer_size - dir_len;
+        if (remaining > 0) {
+            int written = snprintf(buffer + dir_len, remaining, "%s", relative);
+            if (written < 0 || (size_t)written >= remaining) {
+                buffer[buffer_size - 1] = '\0';
+            }
+        }
+    }
+}
+
 char* read_file(const char* filename) {
-    FILE* file = fopen(filename, "rb");
+    char full_path[PATH_MAX];
+    const char *path_to_use = filename;
+
+    if (filename && filename[0] == '/') {
+        path_to_use = filename;
+    } else {
+        build_full_path(full_path, sizeof(full_path), filename);
+        path_to_use = full_path;
+    }
+
+    FILE* file = fopen(path_to_use, "rb");
     if (!file) {
         return NULL;
     }

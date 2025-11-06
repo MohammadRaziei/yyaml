@@ -80,6 +80,7 @@ static uint32_t yyaml_doc_add_node(yyaml_doc *doc, yyaml_type type) {
     doc->nodes[idx].next = YYAML_INDEX_NONE;
     doc->nodes[idx].child = YYAML_INDEX_NONE;
     doc->nodes[idx].extra = 0;
+    doc->nodes[idx].val.integer = 0;
     if (type == YYAML_BOOL) doc->nodes[idx].val.boolean = false;
     else if (type == YYAML_INT) doc->nodes[idx].val.integer = 0;
     else if (type == YYAML_DOUBLE) doc->nodes[idx].val.real = 0.0;
@@ -101,6 +102,11 @@ static bool yyaml_doc_store_string(yyaml_doc *doc, const char *str, size_t len,
     return true;
 }
 
+static bool yyaml_parse_scalar(const char *str, size_t len, yyaml_doc *doc,
+                               yyaml_node *node, const yyaml_read_opts *opts,
+                               yyaml_err *err, size_t pos, size_t line,
+                               size_t col);
+
 static void yyaml_doc_link_child(yyaml_doc *doc, yyaml_level *lvl,
                                  uint32_t child_idx) {
     yyaml_node *child = &doc->nodes[child_idx];
@@ -114,8 +120,123 @@ static void yyaml_doc_link_child(yyaml_doc *doc, yyaml_level *lvl,
     }
     lvl->last_child = child_idx;
     if (parent->type == YYAML_SEQUENCE || parent->type == YYAML_MAPPING) {
-        parent->flags++;
+        parent->val.integer++;
     }
+}
+
+static bool yyaml_is_flow_sequence(const char *str, size_t len,
+                                   size_t *content_start,
+                                   size_t *content_end) {
+    size_t start = 0;
+    size_t end = len;
+
+    while (start < end && isspace((unsigned char)str[start])) start++;
+    while (end > start && isspace((unsigned char)str[end - 1])) end--;
+
+    if (end - start >= 2 && str[start] == '[' && str[end - 1] == ']') {
+        if (content_start) *content_start = start + 1;
+        if (content_end) *content_end = end - 1;
+        return true;
+    }
+
+    return false;
+}
+
+static bool yyaml_fill_flow_sequence(yyaml_doc *doc, uint32_t seq_idx,
+                                     const char *data, size_t len,
+                                     const yyaml_read_opts *cfg,
+                                     yyaml_err *err, size_t line_start,
+                                     size_t line, size_t column) {
+    yyaml_level seq_level = {0};
+    size_t pos = 0;
+
+    seq_level.container = seq_idx;
+    seq_level.last_child = YYAML_INDEX_NONE;
+    seq_level.is_sequence = true;
+    seq_level.indent = 0;
+
+    while (pos < len) {
+        size_t item_start = pos;
+        size_t item_end;
+        int bracket_depth = 0;
+        bool in_single = false;
+        bool in_double = false;
+
+        while (pos < len) {
+            char c = data[pos];
+            if (c == '\'' && !in_double) {
+                in_single = !in_single;
+            } else if (c == '"' && !in_single) {
+                in_double = !in_double;
+            } else if (!in_single && !in_double) {
+                if (c == '[') bracket_depth++;
+                else if (c == ']') {
+                    if (bracket_depth == 0) break;
+                    bracket_depth--;
+                } else if (c == ',' && bracket_depth == 0) {
+                    break;
+                }
+            }
+            pos++;
+        }
+
+        item_end = pos;
+
+        while (item_start < item_end &&
+               isspace((unsigned char)data[item_start])) {
+            item_start++;
+        }
+        while (item_end > item_start &&
+               isspace((unsigned char)data[item_end - 1])) {
+            item_end--;
+        }
+
+        if (item_end > item_start) {
+            size_t item_len = item_end - item_start;
+            const char *item_ptr = data + item_start;
+            uint32_t child_idx = yyaml_doc_add_node(doc, YYAML_NULL);
+            if (child_idx == YYAML_INDEX_NONE) {
+                yyaml_set_error(err, line_start, line, column,
+                                 "out of memory");
+                return false;
+            }
+
+            size_t inner_start = 0;
+            size_t inner_end = 0;
+            if (yyaml_is_flow_sequence(item_ptr, item_len, &inner_start,
+                                       &inner_end)) {
+                doc->nodes[child_idx].type = YYAML_SEQUENCE;
+                if (!yyaml_fill_flow_sequence(doc, child_idx,
+                                              item_ptr + inner_start,
+                                              inner_end - inner_start, cfg,
+                                              err, line_start, line,
+                                              column)) {
+                    return false;
+                }
+            } else {
+                yyaml_node temp = {0};
+                if (!yyaml_parse_scalar(item_ptr, item_len, doc, &temp, cfg,
+                                        err, line_start, line, column)) {
+                    return false;
+                }
+                doc->nodes[child_idx].type = temp.type;
+                doc->nodes[child_idx].val = temp.val;
+                if (temp.type == YYAML_STRING) {
+                    doc->nodes[child_idx].val.str.ofs = temp.val.str.ofs;
+                    doc->nodes[child_idx].val.str.len = temp.val.str.len;
+                }
+            }
+
+            yyaml_doc_link_child(doc, &seq_level, child_idx);
+        }
+
+        if (pos < len && data[pos] == ',') {
+            pos++;
+        }
+        while (pos < len && isspace((unsigned char)data[pos])) pos++;
+    }
+
+    return true;
 }
 
 /* ---------------------------- scalar parsing ------------------------------ */
@@ -410,7 +531,7 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
             /* convert pending node to container */
             yyaml_node *pnode = &doc->nodes[pending.node];
             pnode->type = pending.prefer_sequence ? YYAML_SEQUENCE : YYAML_MAPPING;
-            pnode->flags = 0;
+            pnode->val.integer = 0;
             stack[stack_sz].indent = indent;
             stack[stack_sz].container = pending.node;
             stack[stack_sz].last_child = YYAML_INDEX_NONE;
@@ -440,7 +561,7 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                     /* promote pending to sequence */
                     yyaml_node *pnode = &doc->nodes[pending.node];
                     pnode->type = YYAML_SEQUENCE;
-                    pnode->flags = 0;
+                    pnode->val.integer = 0;
                     if ((cfg->max_nesting && stack_sz >= cfg->max_nesting) ||
                         stack_sz >= sizeof(stack) / sizeof(stack[0])) {
                         yyaml_set_error(err, line_start, line, indent,
@@ -475,6 +596,9 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
         temp_node.extra = 0;
 
         if (seq_item) {
+            yyaml_level map_level = {0};
+            bool map_from_sequence = false;
+            size_t map_child_indent = indent;
             if (!parent_level) {
                 /* root level sequence */
                 uint32_t seq_idx;
@@ -499,7 +623,23 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                 stack_sz++;
                 parent_level = &stack[stack_sz - 1];
             }
-            if (content_start == content_end) {
+            if (has_colon) {
+                size_t base = (size_t)(line_ptr - data);
+                size_t offset = content_start > base ?
+                                 (size_t)(content_start - base) : 0;
+                if (offset > 0) map_child_indent += offset;
+                else map_child_indent++;
+                uint32_t map_idx = yyaml_doc_add_node(doc, YYAML_MAPPING);
+                if (map_idx == YYAML_INDEX_NONE) goto fail_nomem;
+                yyaml_doc_link_child(doc, parent_level, map_idx);
+                map_level.indent = map_child_indent;
+                map_level.container = map_idx;
+                map_level.last_child = YYAML_INDEX_NONE;
+                map_level.is_sequence = false;
+                parent_level = &map_level;
+                map_from_sequence = true;
+                /* fall through to mapping handling below */
+            } else if (content_start == content_end) {
                 /* placeholder null, may become container */
                 uint32_t idx = yyaml_doc_add_node(doc, YYAML_NULL);
                 if (idx == YYAML_INDEX_NONE) goto fail_nomem;
@@ -507,23 +647,126 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                 pending.active = true;
                 pending.node = idx;
                 pending.prefer_sequence = false;
+                continue;
             } else {
                 size_t value_len = content_end - content_start;
-                if (!yyaml_parse_scalar(data + content_start, value_len, doc,
-                                         &temp_node, cfg, err, line_start,
-                                         line, indent + 1))
-                    goto fail;
-                if (temp_node.type == YYAML_STRING) {
-                    uint32_t idx = yyaml_doc_add_node(doc, YYAML_STRING);
+                size_t flow_start = 0;
+                size_t flow_end = 0;
+                if (yyaml_is_flow_sequence(data + content_start, value_len,
+                                           &flow_start, &flow_end)) {
+                    uint32_t idx = yyaml_doc_add_node(doc, YYAML_SEQUENCE);
                     if (idx == YYAML_INDEX_NONE) goto fail_nomem;
-                    doc->nodes[idx] = temp_node;
                     yyaml_doc_link_child(doc, parent_level, idx);
+                    if (!yyaml_fill_flow_sequence(doc, idx,
+                                                  data + content_start +
+                                                      flow_start,
+                                                  flow_end - flow_start,
+                                                  cfg, err, line_start, line,
+                                                  indent + 1))
+                        goto fail;
                 } else {
-                    uint32_t idx = yyaml_doc_add_node(doc, temp_node.type);
-                    if (idx == YYAML_INDEX_NONE) goto fail_nomem;
-                    doc->nodes[idx] = temp_node;
-                    yyaml_doc_link_child(doc, parent_level, idx);
+                    if (!yyaml_parse_scalar(data + content_start, value_len,
+                                             doc, &temp_node, cfg, err,
+                                             line_start, line, indent + 1))
+                        goto fail;
+                    if (temp_node.type == YYAML_STRING) {
+                        uint32_t idx =
+                            yyaml_doc_add_node(doc, YYAML_STRING);
+                        if (idx == YYAML_INDEX_NONE) goto fail_nomem;
+                        doc->nodes[idx] = temp_node;
+                        yyaml_doc_link_child(doc, parent_level, idx);
+                    } else {
+                        uint32_t idx =
+                            yyaml_doc_add_node(doc, temp_node.type);
+                        if (idx == YYAML_INDEX_NONE) goto fail_nomem;
+                        doc->nodes[idx] = temp_node;
+                        yyaml_doc_link_child(doc, parent_level, idx);
+                    }
                 }
+                continue;
+            }
+
+            if (map_from_sequence) {
+                size_t flow_start = 0;
+                size_t flow_end = 0;
+                const char *colon = NULL;
+                size_t j;
+                bool in_s = false, in_d = false;
+                for (j = content_start; j < content_end; j++) {
+                    char c = data[j];
+                    if (c == '\'' && !in_d) in_s = !in_s;
+                    else if (c == '"' && !in_s) in_d = !in_d;
+                    else if (c == ':' && !in_s && !in_d) {
+                        size_t nxt = j + 1;
+                        if (nxt >= content_end || data[nxt] == ' ' ||
+                            data[nxt] == '\t') {
+                            colon = &data[j];
+                            break;
+                        }
+                    }
+                }
+                if (!colon) {
+                    yyaml_set_error(err, line_start, line, indent + 1,
+                                     "unterminated mapping entry");
+                    goto fail;
+                }
+                size_t key_start = content_start;
+                size_t key_end = (size_t)(colon - data);
+                while (key_start < key_end &&
+                       isspace((unsigned char)data[key_start])) key_start++;
+                while (key_end > key_start &&
+                       isspace((unsigned char)data[key_end - 1])) key_end--;
+                size_t val_start = (size_t)(colon - data + 1);
+                while (val_start < content_end &&
+                       isspace((unsigned char)data[val_start]))
+                    val_start++;
+                size_t val_len = content_end - val_start;
+                size_t key_len = key_end - key_start;
+                const char *key_ptr = data + key_start;
+                uint32_t idx = yyaml_doc_add_node(doc, YYAML_NULL);
+                uint32_t key_ofs = 0;
+                if (idx == YYAML_INDEX_NONE) goto fail_nomem;
+                if (!yyaml_doc_store_string(doc, key_ptr, key_len, &key_ofs))
+                    goto fail_nomem;
+                doc->nodes[idx].flags = (uint32_t)key_len;
+                doc->nodes[idx].extra = key_ofs;
+                yyaml_doc_link_child(doc, &map_level, idx);
+                if (val_len == 0) {
+                    pending.active = true;
+                    pending.node = idx;
+                    pending.prefer_sequence = false;
+                } else if (yyaml_is_flow_sequence(data + val_start, val_len,
+                                                  &flow_start, &flow_end)) {
+                    doc->nodes[idx].type = YYAML_SEQUENCE;
+                    if (!yyaml_fill_flow_sequence(doc, idx,
+                                                  data + val_start +
+                                                      flow_start,
+                                                  flow_end - flow_start,
+                                                  cfg, err, line_start, line,
+                                                  val_start - line_start + 1))
+                        goto fail;
+                } else {
+                    if (!yyaml_parse_scalar(data + val_start, val_len, doc,
+                                             &temp_node, cfg, err, line_start,
+                                             line, val_start - line_start + 1))
+                        goto fail;
+                    doc->nodes[idx].type = temp_node.type;
+                    doc->nodes[idx].val = temp_node.val;
+                    if (temp_node.type == YYAML_STRING) {
+                        doc->nodes[idx].val.str.ofs = temp_node.val.str.ofs;
+                        doc->nodes[idx].val.str.len = temp_node.val.str.len;
+                    }
+                }
+                if ((cfg->max_nesting && stack_sz >= cfg->max_nesting) ||
+                    stack_sz >= sizeof(stack) / sizeof(stack[0])) {
+                    yyaml_set_error(err, line_start, line, indent,
+                                     "nesting limit exceeded");
+                    goto fail;
+                }
+                stack[stack_sz] = map_level;
+                stack_sz++;
+                last_indent = map_child_indent;
+                continue;
             }
             continue;
         }
@@ -620,16 +863,30 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                 pending.node = idx;
                 pending.prefer_sequence = false;
             } else {
-                if (!yyaml_parse_scalar(data + val_start, val_len, doc,
-                                         &temp_node, cfg, err, line_start,
-                                         line, val_start - line_start + 1))
-                    goto fail;
+                size_t flow_start = 0;
+                size_t flow_end = 0;
                 yyaml_doc_link_child(doc, parent_level, idx);
-                doc->nodes[idx].type = temp_node.type;
-                doc->nodes[idx].val = temp_node.val;
-                if (temp_node.type == YYAML_STRING) {
-                    doc->nodes[idx].val.str.ofs = temp_node.val.str.ofs;
-                    doc->nodes[idx].val.str.len = temp_node.val.str.len;
+                if (yyaml_is_flow_sequence(data + val_start, val_len,
+                                           &flow_start, &flow_end)) {
+                    doc->nodes[idx].type = YYAML_SEQUENCE;
+                    if (!yyaml_fill_flow_sequence(doc, idx,
+                                                  data + val_start +
+                                                      flow_start,
+                                                  flow_end - flow_start,
+                                                  cfg, err, line_start, line,
+                                                  val_start - line_start + 1))
+                        goto fail;
+                } else {
+                    if (!yyaml_parse_scalar(data + val_start, val_len, doc,
+                                             &temp_node, cfg, err, line_start,
+                                             line, val_start - line_start + 1))
+                        goto fail;
+                    doc->nodes[idx].type = temp_node.type;
+                    doc->nodes[idx].val = temp_node.val;
+                    if (temp_node.type == YYAML_STRING) {
+                        doc->nodes[idx].val.str.ofs = temp_node.val.str.ofs;
+                        doc->nodes[idx].val.str.len = temp_node.val.str.len;
+                    }
                 }
             }
             continue;
@@ -735,12 +992,12 @@ YYAML_API const yyaml_node *yyaml_seq_get(const yyaml_doc *doc,
 
 YYAML_API size_t yyaml_seq_len(const yyaml_node *seq) {
     if (!seq || seq->type != YYAML_SEQUENCE) return 0;
-    return seq->flags;
+    return (size_t)seq->val.integer;
 }
 
 YYAML_API size_t yyaml_map_len(const yyaml_node *map) {
     if (!map || map->type != YYAML_MAPPING) return 0;
-    return map->flags;
+    return (size_t)map->val.integer;
 }
 
 /* ------------------------------ writing ---------------------------------- */
@@ -824,9 +1081,23 @@ static bool yyaml_writer_write_int(yyaml_writer *wr, int64_t val) {
     return yyaml_writer_write(wr, tmp, (size_t)len);
 }
 
+static bool yyaml_writer_is_plain_scalar(const char *str, size_t len) {
+    size_t i;
+    if (len == 0) return false;
+    if (!(isalpha((unsigned char)str[0]) || str[0] == '_')) return false;
+    for (i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)str[i];
+        if (!(isalnum(c) || c == '_' || c == '-')) return false;
+    }
+    return true;
+}
+
 static bool yyaml_writer_write_string_literal(yyaml_writer *wr, const char *str,
                                               size_t len) {
     size_t i;
+    if (yyaml_writer_is_plain_scalar(str, len)) {
+        return yyaml_writer_write(wr, str, len);
+    }
     if (!yyaml_writer_putc(wr, '"')) return false;
     for (i = 0; i < len; i++) {
         unsigned char c = (unsigned char)str[i];
