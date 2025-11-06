@@ -1,0 +1,11 @@
+name: "YYAML Demo"
+version: 1.0
+debug: true
+features:
+  - parsing
+  - writing
+  - zero-dependency
+database:
+  host: localhost
+  port: 5432
+  tags: [primary, read-write]

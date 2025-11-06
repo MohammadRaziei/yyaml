@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(yyaml VERSION 1.0.0 LANGUAGES C)
 
+option(BUILD_EXAMPLES "Build yyaml example programs" OFF)
+
 # Set C standard
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -38,4 +40,8 @@ enable_testing()
 # Add tests directory
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
     add_subdirectory(tests)
+endif()
+
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples/c)
 endif()

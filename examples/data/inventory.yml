@@ -1,0 +1,11 @@
+items:
+  - id: 1001
+    name: "Hammer"
+    quantity: 42
+  - id: 1002
+    name: "Nails"
+    quantity: 500
+warehouse:
+  city: "Tehran"
+  temperature: 24.5
+  active: yes
