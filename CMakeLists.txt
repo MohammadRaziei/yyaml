@@ -22,6 +22,61 @@ target_compile_options(yyaml PRIVATE
     -Wpedantic
 )
 
+
+
+
+
+# Optimize for performance
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+endif()
+
+# Additional optimization flags for GCC/Clang
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(SAFE_FLAGS "-fomit-frame-pointer -fno-stack-protector")
+    if(NOT APPLE)
+        set(SAFE_FLAGS "${SAFE_FLAGS} -march=native -mtune=native")
+    endif()
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SAFE_FLAGS}")
+endif()
+
+# Set build type to Release for better performance
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+# Find Python and Cython
+find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+find_package(Cython MODULE REQUIRED VERSION 3.0)
+include(UseCython)
+
+
+# Set Python module output directory
+# set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
+
+# Transpile Cython to C++
+cython_transpile(src/yyaml.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_cpp_file)
+
+# Create the Python extension module
+python_add_library(yyaml_python MODULE "${yyaml_cpp_file}" WITH_SOABI)
+
+
+# Link pugixml to our module
+target_link_libraries(yyaml_python PRIVATE yyaml)
+
+
+# Install the module
+install(TARGETS yyaml_python
+    DESTINATION ${SKBUILD_PROJECT_NAME}
+)
+
+
+
 # Install targets
 install(TARGETS yyaml
     ARCHIVE DESTINATION lib
