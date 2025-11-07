@@ -43,13 +43,27 @@ static void copy_scalar_string(const yyaml_doc *doc,
     size_t len;
     if (!buffer || buffer_size == 0) return;
     buffer[0] = '\0';
-    if (!node || node->type != YYAML_STRING) return;
-    scalars = yyaml_doc_get_scalar_buf(doc);
-    if (!scalars) return;
-    len = node->val.str.len;
-    if (len >= buffer_size) len = buffer_size - 1;
-    memcpy(buffer, scalars + node->val.str.ofs, len);
-    buffer[len] = '\0';
+    if (!node) return;
+
+    switch (node->type) {
+    case YYAML_STRING:
+        scalars = yyaml_doc_get_scalar_buf(doc);
+        if (!scalars) return;
+        len = node->val.str.len;
+        if (len >= buffer_size) len = buffer_size - 1;
+        memcpy(buffer, scalars + node->val.str.ofs, len);
+        buffer[len] = '\0';
+        return;
+    case YYAML_BOOL:
+        strncpy(buffer, node->val.boolean ? "true" : "false", buffer_size - 1);
+        buffer[buffer_size - 1] = '\0';
+        return;
+    case YYAML_INT:
+        snprintf(buffer, buffer_size, "%lld", (long long)node->val.integer);
+        return;
+    default:
+        return;
+    }
 }
 
 static const yyaml_node *get_sequence_item(const yyaml_doc *doc,
@@ -240,17 +254,12 @@ static void verify_expected(const yyaml_doc *doc) {
         print_check("containers[0].image == registry.example.com/api:v1",
                     strcmp(text, "registry.example.com/api:v1") == 0);
         env = (first && first->type == YYAML_MAPPING) ? yyaml_map_get(doc, first, "env") : NULL;
-        copy_scalar_string(doc,
-                           (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG")
-                                                                : NULL,
-                           text, sizeof(text));
-        print_check("containers[0].env.DEBUG == yes", strcmp(text, "yes") == 0);
-        copy_scalar_string(doc,
-                           (env && env->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, env, "TIMEOUT")
-                               : NULL,
-                           text, sizeof(text));
-        print_check("containers[0].env.TIMEOUT == 30", strcmp(text, "30") == 0);
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG") : NULL;
+        print_check("containers[0].env.DEBUG == true",
+                    node && node->type == YYAML_BOOL && node->val.boolean);
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "TIMEOUT") : NULL;
+        print_check("containers[0].env.TIMEOUT == 30",
+                    node && node->type == YYAML_INT && node->val.integer == 30);
 
         copy_scalar_string(doc,
                            (second && second->type == YYAML_MAPPING)
@@ -266,17 +275,12 @@ static void verify_expected(const yyaml_doc *doc) {
         print_check("containers[1].image == registry.example.com/worker:v2",
                     strcmp(text, "registry.example.com/worker:v2") == 0);
         env = (second && second->type == YYAML_MAPPING) ? yyaml_map_get(doc, second, "env") : NULL;
-        copy_scalar_string(doc,
-                           (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG")
-                                                                : NULL,
-                           text, sizeof(text));
-        print_check("containers[1].env.DEBUG == no", strcmp(text, "no") == 0);
-        copy_scalar_string(doc,
-                           (env && env->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, env, "TIMEOUT")
-                               : NULL,
-                           text, sizeof(text));
-        print_check("containers[1].env.TIMEOUT == 120", strcmp(text, "120") == 0);
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG") : NULL;
+        print_check("containers[1].env.DEBUG == false",
+                    node && node->type == YYAML_BOOL && !node->val.boolean);
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "TIMEOUT") : NULL;
+        print_check("containers[1].env.TIMEOUT == 120",
+                    node && node->type == YYAML_INT && node->val.integer == 120);
     }
 
     volumes = yyaml_map_get(doc, deployment, "volumes");
