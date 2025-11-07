@@ -23,6 +23,12 @@ bool yyaml_example_read_file(const char *path,
                               char **out_data,
                               size_t *out_len);
 
+bool yyaml_example_write_file(const char *path,
+                              const char *data,
+                              size_t data_len);
+
+bool yyaml_example_create_temp_yaml(char *buffer, size_t buffer_size);
+
 #ifdef __cplusplus
 }
 #endif

@@ -12,19 +12,96 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <io.h>
 #else
 #include <limits.h>
 #include <unistd.h>
 #endif
+
+static int yyaml_example_is_sep(int ch) {
+#if defined(_WIN32)
+    return ch == '/' || ch == '\\';
+#else
+    return ch == '/';
+#endif
+}
+
+static void yyaml_example_trim_trailing_sep(char *path) {
+    size_t len;
+    if (!path) return;
+    len = strlen(path);
+    while (len > 0 && yyaml_example_is_sep((unsigned char)path[len - 1])) {
+#if defined(_WIN32)
+        if (len == 3 && path[1] == ':' && yyaml_example_is_sep((unsigned char)path[2])) {
+            return;
+        }
+#endif
+        if (len == 1) {
+            return;
+        }
+        path[--len] = '\0';
+    }
+}
+
+static bool yyaml_example_path_pop(char *path) {
+    size_t len;
+    if (!path) return false;
+    len = strlen(path);
+    if (len == 0) return false;
+    yyaml_example_trim_trailing_sep(path);
+    len = strlen(path);
+    while (len > 0 && !yyaml_example_is_sep((unsigned char)path[len - 1])) {
+        path[--len] = '\0';
+    }
+    if (len == 0) {
+        return true;
+    }
+    if (len == 1 && path[0] == '/') {
+        path[1] = '\0';
+        return true;
+    }
+#if defined(_WIN32)
+    if (len == 3 && path[1] == ':' && yyaml_example_is_sep((unsigned char)path[2])) {
+        path[3] = '\0';
+        return true;
+    }
+#endif
+    path[len - 1] = '\0';
+    return true;
+}
+
+static bool yyaml_example_path_append(char *path,
+                                      size_t path_size,
+                                      const char *component,
+                                      size_t component_len) {
+    size_t len;
+    if (!path || !component) return false;
+    if (component_len == 0) return true;
+    len = strlen(path);
+    if (len == 0) return false;
+    if (!yyaml_example_is_sep((unsigned char)path[len - 1])) {
+        if (len + 1 >= path_size) return false;
+#if defined(_WIN32)
+        path[len++] = '\\';
+#else
+        path[len++] = '/';
+#endif
+        path[len] = '\0';
+    }
+    if (len + component_len >= path_size) return false;
+    memcpy(path + len, component, component_len);
+    path[len + component_len] = '\0';
+    return true;
+}
 
 bool yyaml_example_build_data_path(const char *source_file,
                                    const char *suffix,
                                    char *buffer,
                                    size_t buffer_size) {
     char file_path[1024];
-    const char *sep;
-    size_t dir_len;
-    int written;
+    char dir_path[1024];
+    char result[2048];
+    const char *cursor;
 
     if (!buffer || buffer_size == 0 || !source_file || !suffix) {
         return false;
@@ -40,54 +117,47 @@ bool yyaml_example_build_data_path(const char *source_file,
     }
 #endif
 
-    sep = strrchr(file_path, '/');
-#if defined(_WIN32)
-    {
-        const char *back = strrchr(file_path, '\\');
-        if (!sep || (back && back > sep)) {
-            sep = back;
-        }
-    }
-#endif
-
-    dir_len = sep ? (size_t)(sep - file_path) : 0U;
-    if (dir_len >= sizeof(file_path)) {
+    strncpy(dir_path, file_path, sizeof(dir_path));
+    dir_path[sizeof(dir_path) - 1] = '\0';
+    if (!yyaml_example_path_pop(dir_path) || dir_path[0] == '\0') {
         return false;
     }
 
-    written = snprintf(buffer, buffer_size, "%.*s%s", (int)dir_len, file_path, suffix);
-    if (written < 0 || (size_t)written >= buffer_size) {
+    strncpy(result, dir_path, sizeof(result));
+    result[sizeof(result) - 1] = '\0';
+
+    cursor = suffix;
+    while (*cursor) {
+        const char *start;
+        size_t len;
+        while (*cursor && yyaml_example_is_sep((unsigned char)*cursor)) {
+            cursor++;
+        }
+        if (*cursor == '\0') break;
+        start = cursor;
+        while (*cursor && !yyaml_example_is_sep((unsigned char)*cursor)) {
+            cursor++;
+        }
+        len = (size_t)(cursor - start);
+        if (len == 0) continue;
+        if (len == 1 && start[0] == '.') {
+            continue;
+        }
+        if (len == 2 && start[0] == '.' && start[1] == '.') {
+            if (!yyaml_example_path_pop(result)) {
+                return false;
+            }
+            continue;
+        }
+        if (!yyaml_example_path_append(result, sizeof(result), start, len)) {
+            return false;
+        }
+    }
+
+    if (strlen(result) + 1 > buffer_size) {
         return false;
     }
-
-#if defined(_WIN32)
-    {
-        char resolved[1024];
-        size_t len;
-        if (!_fullpath(resolved, buffer, sizeof(resolved))) {
-            return false;
-        }
-        len = strlen(resolved);
-        if (len + 1 > buffer_size) {
-            return false;
-        }
-        memcpy(buffer, resolved, len + 1);
-    }
-#else
-    {
-        char resolved[1024];
-        size_t len;
-        if (!realpath(buffer, resolved)) {
-            return false;
-        }
-        len = strlen(resolved);
-        if (len + 1 > buffer_size) {
-            return false;
-        }
-        memcpy(buffer, resolved, len + 1);
-    }
-#endif
-
+    memcpy(buffer, result, strlen(result) + 1);
     return true;
 }
 
@@ -144,4 +214,88 @@ bool yyaml_example_read_file(const char *path,
     *out_data = buf;
     *out_len = (size_t)size;
     return true;
+}
+
+bool yyaml_example_write_file(const char *path,
+                              const char *data,
+                              size_t data_len) {
+    FILE *fp;
+    if (!path || !data) {
+        return false;
+    }
+    fp = fopen(path, "wb");
+    if (!fp) {
+        return false;
+    }
+    if (data_len > 0) {
+        size_t written = fwrite(data, 1, data_len, fp);
+        if (written != data_len) {
+            fclose(fp);
+            return false;
+        }
+    }
+    fclose(fp);
+    return true;
+}
+
+bool yyaml_example_create_temp_yaml(char *buffer, size_t buffer_size) {
+    if (!buffer || buffer_size == 0) {
+        return false;
+    }
+
+#if defined(_WIN32)
+    {
+        char tmp_dir[MAX_PATH];
+        char template_buf[MAX_PATH];
+        if (GetTempPathA((DWORD)sizeof(tmp_dir), tmp_dir) == 0) {
+            return false;
+        }
+        if (snprintf(template_buf, sizeof(template_buf), "%syyaml-sampleXXXXXX.yaml", tmp_dir) < 0) {
+            return false;
+        }
+        if (_mktemp_s(template_buf, sizeof(template_buf)) != 0) {
+            return false;
+        }
+        if (!yyaml_example_write_file(template_buf, "", 0)) {
+            return false;
+        }
+        if (strlen(template_buf) + 1 > buffer_size) {
+            return false;
+        }
+        memcpy(buffer, template_buf, strlen(template_buf) + 1);
+        return true;
+    }
+#else
+    {
+        const char *suffix = ".yaml";
+        const char *tmp_dir = getenv("TMPDIR");
+        char template_buf[4096];
+        int fd;
+        if (!tmp_dir || tmp_dir[0] == '\0') {
+            tmp_dir = "/tmp";
+        }
+        if (snprintf(template_buf, sizeof(template_buf), "%s/yyaml-sampleXXXXXX%s", tmp_dir, suffix) < 0) {
+            return false;
+        }
+#if defined(__APPLE__) || defined(__linux__) || defined(__unix__)
+        fd = mkstemps(template_buf, (int)strlen(suffix));
+#else
+        {
+            size_t suffix_len = strlen(suffix);
+            template_buf[strlen(template_buf) - suffix_len] = '\0';
+            fd = mkstemp(template_buf);
+            strcat(template_buf, suffix);
+        }
+#endif
+        if (fd < 0) {
+            return false;
+        }
+        close(fd);
+        if (strlen(template_buf) + 1 > buffer_size) {
+            return false;
+        }
+        memcpy(buffer, template_buf, strlen(template_buf) + 1);
+        return true;
+    }
+#endif
 }
