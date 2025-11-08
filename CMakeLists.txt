@@ -71,13 +71,14 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
     # Link pugixml to our module
     target_link_libraries(yyaml_python PRIVATE yyaml)
 
+    # If using scikit-build, set the output directory for the module
+    # set_target_properties(yyaml_python PROPERTIES
+    #     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml
+    # )
 
 
     if (DEFINED SKBUILD)
-        # If using scikit-build, set the output directory for the module
-        # set_target_properties(yyaml_python PROPERTIES
-        #     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${SKBUILD_PROJECT_NAME}
-        # )
+
 
         install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
             DESTINATION .
@@ -86,7 +87,7 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
 
         # Install the module
         install(TARGETS yyaml_python
-            DESTINATION ${SKBUILD_PROJECT_NAME}
+            DESTINATION yyaml
         )
 
         RETURN()
