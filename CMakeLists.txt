@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(yyaml VERSION 1.0.0 LANGUAGES C)
 
 option(BUILD_EXAMPLES "Build yyaml example programs" OFF)
+option(BUILD_PYTHON "Build yyaml example programs" OFF)
 
 # Set C standard
 set(CMAKE_C_STANDARD 99)
@@ -21,8 +22,6 @@ target_compile_options(yyaml PRIVATE
     -Wextra
     -Wpedantic
 )
-
-
 
 
 
@@ -50,31 +49,56 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-# Find Python and Cython
-find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-find_package(Cython MODULE REQUIRED VERSION 3.0)
-include(UseCython)
+
+if(${BUILD_PYTHON} OR DEFINED SKBUILD)
+
+    # Find Python and Cython
+    find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+    find_package(Cython MODULE REQUIRED VERSION 3.0)
+    include(UseCython)
 
 
-# Set Python module output directory
-# set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
+    # Set Python module output directory
+    # set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
 
-# Transpile Cython to C++
-cython_transpile(src/yyaml.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_cpp_file)
+    # Transpile Cython to C++
+    cython_transpile(src/python/yyaml.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_cpp_file)
 
-# Create the Python extension module
-python_add_library(yyaml_python MODULE "${yyaml_cpp_file}" WITH_SOABI)
-
-
-# Link pugixml to our module
-target_link_libraries(yyaml_python PRIVATE yyaml)
+    # Create the Python extension module
+    python_add_library(yyaml_python MODULE "${yyaml_cpp_file}" WITH_SOABI)
 
 
-# Install the module
-install(TARGETS yyaml_python
-    DESTINATION ${SKBUILD_PROJECT_NAME}
-)
+    # Link pugixml to our module
+    target_link_libraries(yyaml_python PRIVATE yyaml)
 
+    set_target_properties(yyaml_python NAME yyaml)
+
+
+
+    if (DEFINED SKBUILD)
+        # If using scikit-build, set the output directory for the module
+        # set_target_properties(yyaml_python PROPERTIES
+        #     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${SKBUILD_PROJECT_NAME}
+        # )
+
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
+            DESTINATION ${SKBUILD_PROJECT_NAME}
+            FILES_MATCHING PATTERN "*.py"
+        )
+
+        # Install the module
+        install(TARGETS yyaml_python
+            DESTINATION ${SKBUILD_PROJECT_NAME}
+        )
+
+        RETURN()
+    else()
+        # Install the module to the standard Python site-packages directory
+        install(TARGETS yyaml_python
+            LIBRARY DESTINATION ${Python_SITEARCH}
+        )
+    endif()
+endif()
 
 
 # Install targets
