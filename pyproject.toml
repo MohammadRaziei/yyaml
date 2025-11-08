@@ -39,6 +39,9 @@ test = [
 "Document" = "https://mohammadraziei.github.io/yyaml"
 
 
+[tool.scikit-build]
+build-dir = "build"
+
 [tool.scikit-build.cmake]
 version = ">=3.15"
 build-type = "Release"

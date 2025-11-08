@@ -61,17 +61,17 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
     # Set Python module output directory
     # set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
 
-    # Transpile Cython to C++
-    cython_transpile(src/python/yyaml.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_cpp_file)
+    # Transpile Cython to C
+    cython_transpile(src/python/yyaml.pyx LANGUAGE C OUTPUT_VARIABLE yyaml_c_file)
 
     # Create the Python extension module
-    python_add_library(yyaml_python MODULE "${yyaml_cpp_file}" WITH_SOABI)
+    python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
 
 
     # Link pugixml to our module
     target_link_libraries(yyaml_python PRIVATE yyaml)
 
-    set_target_properties(yyaml_python NAME yyaml)
+    # set_target_properties(yyaml_python PROPERTIES OUTPUT_NAME yyaml)
 
 
 
@@ -82,7 +82,7 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
         # )
 
         install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
-            DESTINATION ${SKBUILD_PROJECT_NAME}
+            DESTINATION .
             FILES_MATCHING PATTERN "*.py"
         )
 
@@ -94,8 +94,13 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
         RETURN()
     else()
         # Install the module to the standard Python site-packages directory
+        
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
+            DESTINATION ${CMAKE_BINARY_DIR}
+            FILES_MATCHING PATTERN "*.py"
+        )
         install(TARGETS yyaml_python
-            LIBRARY DESTINATION ${Python_SITEARCH}
+            LIBRARY DESTINATION ${CMAKE_BINARY_DIR}/yyaml
         )
     endif()
 endif()
