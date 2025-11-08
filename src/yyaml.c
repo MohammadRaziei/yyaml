@@ -1290,7 +1290,6 @@ YYAML_API bool yyaml_write(const yyaml_doc *doc, char **out, size_t *out_len,
     return true;
 nomem:
     yyaml_set_error(err, 0, 0, 0, "out of memory");
-fail:
     free(wr.buf);
     return false;
 }
