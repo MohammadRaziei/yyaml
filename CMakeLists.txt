@@ -62,7 +62,7 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
     # set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
 
     # Transpile Cython to C
-    cython_transpile(src/python/yyaml.pyx LANGUAGE C OUTPUT_VARIABLE yyaml_c_file)
+    cython_transpile(src/python/yyaml_python.pyx LANGUAGE C OUTPUT_VARIABLE yyaml_c_file)
 
     # Create the Python extension module
     python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
@@ -70,8 +70,6 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
 
     # Link pugixml to our module
     target_link_libraries(yyaml_python PRIVATE yyaml)
-
-    # set_target_properties(yyaml_python PROPERTIES OUTPUT_NAME yyaml)
 
 
 
