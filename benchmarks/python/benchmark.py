@@ -3,6 +3,7 @@ import csv
 import random
 import string
 from io import StringIO
+from tqdm import tqdm
 
 import yaml               # PyYAML
 import ruamel.yaml        # ruamel.yaml
@@ -15,7 +16,8 @@ import ryaml              # ryaml (Rust-based YAML)
 # ============================================================
 # Benchmark configuration
 # ============================================================
-N = 200  # Number of iterations per test
+MAX_ITER = 200         # Maximum number of iterations
+MAX_TIME = 6 * 60.0       # Maximum time per operation (seconds)
 SIZES = {
     "small": 10,
     "medium": 100,
@@ -43,21 +45,29 @@ def yaml_text_from_dict(d: dict):
     """Convert a dict to YAML text for load tests (using PyYAML)."""
     return yaml.safe_dump(d, sort_keys=False)
 
+def limited_benchmark(operation_name, func, data):
+    """
+    Run a function up to MAX_ITER times but stop if it exceeds MAX_TIME seconds.
+    Returns the average time per iteration (seconds).
+    """
+    start = time.perf_counter()
+    times = []
+    for i in tqdm(range(MAX_ITER), desc=operation_name, leave=True, ncols=80):
+        iter_start = time.perf_counter()
+        func(data)
+        iter_end = time.perf_counter()
+        times.append(iter_end - iter_start)
+        # Stop if total time exceeds the limit
+        if iter_end - start > MAX_TIME:
+            print(f"\n⏱️  {operation_name} exceeded {MAX_TIME} s limit, stopping early at {i+1} iterations.")
+            break
+    return sum(times) / len(times) if times else float("inf")
+
 def benchmark(library_name, dump_func, load_func, sample_dict, sample_yaml):
-    """Run a benchmark for a given YAML library and return average times."""
-    # Serialize benchmark
-    start = time.perf_counter()
-    for _ in range(N):
-        dump_func(sample_dict)
-    dump_time = (time.perf_counter() - start) / N
-
-    # Deserialize benchmark
-    start = time.perf_counter()
-    for _ in range(N):
-        load_func(sample_yaml)
-    load_time = (time.perf_counter() - start) / N
-
-    return dump_time * 1000, load_time * 1000  # convert to ms
+    """Run a benchmark for a given YAML library and return average times (ms)."""
+    dump_time = limited_benchmark(f"{library_name} dump", dump_func, sample_dict)
+    load_time = limited_benchmark(f"{library_name} load", load_func, sample_yaml)
+    return dump_time * 1000, load_time * 1000
 
 
 # ============================================================
@@ -66,7 +76,6 @@ def benchmark(library_name, dump_func, load_func, sample_dict, sample_yaml):
 
 yaml_ruamel = ruamel.yaml.YAML(typ="safe")
 yaml_ruyaml = ruyaml.YAML(typ="safe")
-from yamlium import parse, from_dict
 
 # ============================================================
 # Run benchmarks
@@ -75,7 +84,7 @@ from yamlium import parse, from_dict
 results = []
 
 for size_name, num_items in SIZES.items():
-    print(f"Running benchmarks for data size: {size_name} ({num_items} items)...")
+    print(f"\n=== Running benchmarks for data size: {size_name} ({num_items} items) ===")
     sample_dict = random_dict(num_items)
     sample_yaml = yaml_text_from_dict(sample_dict)
 
@@ -114,8 +123,8 @@ for size_name, num_items in SIZES.items():
     # Yamlium
     results.append(("Yamlium", size_name, *benchmark(
         "Yamlium",
-        lambda d: from_dict(d).to_yaml(),
-        lambda s: parse(s).to_dict(),
+        lambda d: yamlium.from_dict(d).to_yaml(),
+        lambda s: yamlium.parse(s).to_dict(),
         sample_dict, sample_yaml
     )))
 
