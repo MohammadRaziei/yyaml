@@ -57,8 +57,21 @@ char* read_file(const char* filename) {
     if (filename && filename[0] == '/') {
         path_to_use = filename;
     } else {
+#ifdef YYAML_TEST_DATA_DIR
+        const char prefix[] = "../tests/data/";
+        const char *relative = filename ? filename : "";
+        if (strncmp(relative, prefix, sizeof(prefix) - 1) == 0) {
+            relative += sizeof(prefix) - 1;
+        }
+        int written = snprintf(full_path, sizeof(full_path), "%s/%s", YYAML_TEST_DATA_DIR, relative);
+        if (written < 0 || (size_t)written >= sizeof(full_path)) {
+            full_path[sizeof(full_path) - 1] = '\0';
+        }
+        path_to_use = full_path;
+#else
         build_full_path(full_path, sizeof(full_path), filename);
         path_to_use = full_path;
+#endif
     }
 
     FILE* file = fopen(path_to_use, "rb");

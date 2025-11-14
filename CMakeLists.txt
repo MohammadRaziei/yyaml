@@ -1,12 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
-project(yyaml VERSION 1.0.0 LANGUAGES C)
+project(yyaml VERSION 1.0.0 LANGUAGES C CXX)
 
 option(BUILD_EXAMPLES "Build yyaml example programs" OFF)
+option(BUILD_TESTS "Build yyaml test suites" ON)
 option(BUILD_PYTHON "Build yyaml Python bindings" OFF)
 
 # Set C standard
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Create library target
 add_library(yyaml STATIC src/yyaml.c)
@@ -103,17 +106,18 @@ install(TARGETS yyaml
 
 install(DIRECTORY includes/
     DESTINATION include
-    FILES_MATCHING PATTERN "*.h"
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 
-# Enable testing
-enable_testing()
-
-# Add tests directory
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
-    add_subdirectory(tests)
+if(BUILD_TESTS)
+    enable_testing()
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt)
+        add_subdirectory(tests)
+    endif()
 endif()
 
 if(BUILD_EXAMPLES)
-    add_subdirectory(examples/c)
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/examples/CMakeLists.txt)
+        add_subdirectory(examples)
+    endif()
 endif()

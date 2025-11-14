@@ -49,6 +49,10 @@ target_include_directories(debug_yaml PRIVATE
     ${CMAKE_SOURCE_DIR}/includes
 )
 
+target_compile_definitions(yyaml_file_tests PRIVATE
+    YYAML_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data"
+)
+
 # Optionally enable testing
 enable_testing()
 add_test(NAME yyaml_tests COMMAND yyaml_tests)
