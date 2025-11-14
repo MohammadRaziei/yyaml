@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(yyaml VERSION 1.0.0 LANGUAGES C)
 
 option(BUILD_EXAMPLES "Build yyaml example programs" OFF)
-option(BUILD_PYTHON "Build yyaml Python bindings" ON)
+option(BUILD_PYTHON "Build yyaml Python bindings" OFF)
 
 # Set C standard
 set(CMAKE_C_STANDARD 99)
@@ -54,58 +54,19 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
 
     # Find Python and Cython
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-    # find_package(Cython MODULE REQUIRED VERSION 3.0)
-    # include(UseCython)
+    find_package(Cython MODULE REQUIRED VERSION 3.0)
+    include(UseCython)
 
-
-    # Set Python module output directory
-    # set(PYTHON_MODULE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml)
 
     # Transpile Cython to C
-    # cython_transpile(${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx LANGUAGE C OUTPUT ${CMAKE_BINARY_DIR}/yyaml_python.c OUTPUT_VARIABLE yyaml_c_file)
-    # message("XXXXXXXXXXXX: ${yyaml_c_file}")
+    cython_transpile(${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx LANGUAGE C OUTPUT_VARIABLE yyaml_c_file)
 
     # Create the Python extension module
-    # python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
-
-
-
-    set(PYX_FILE "${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx")
-    set(PYX_C_FILE "${CMAKE_BINARY_DIR}/yyaml_python.c")
-
-    # Run Cython manually to generate the C file
-    execute_process(
-        COMMAND cython --fast-fail -3 -o ${PYX_C_FILE} ${PYX_FILE}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        RESULT_VARIABLE CYTHON_RESULT
-        OUTPUT_VARIABLE CYTHON_OUTPUT
-        ERROR_VARIABLE CYTHON_ERROR
-    )
-
-    if(NOT CYTHON_RESULT EQUAL 0)
-        message(FATAL_ERROR "Cython failed: ${CYTHON_ERROR}")
-    else()
-        message(STATUS "Cython generated: ${PYX_C_FILE}")
-    endif()
-
-    # Create the Python extension module
-    python_add_library(yyaml_python MODULE "${PYX_C_FILE}" WITH_SOABI)
-
-    # # Ensure the compiled extension is placed in the expected package directory
-    # set_target_properties(yyaml_python PROPERTIES
-    #     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml
-    #     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml
-    #     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml
-    # )
+    python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
 
 
     # Link pugixml to our module
     target_link_libraries(yyaml_python PRIVATE yyaml)
-
-    # If using scikit-build, set the output directory for the module
-    # set_target_properties(yyaml_python PROPERTIES
-    #     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/yyaml
-    # )
 
 
     if (DEFINED SKBUILD)
@@ -118,6 +79,8 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
         install(TARGETS yyaml_python
             DESTINATION yyaml
         )
+
+        RETURN()
     else()
         # Install the module to the standard Python site-packages directory
         install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
