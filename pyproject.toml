@@ -41,12 +41,12 @@ test = [
 
 [tool.scikit-build]
 build-dir = "build"
+build.verbose = true
 
 
 [tool.scikit-build.cmake]
-minimum-version = "3.15"
+version = ">=3.15"
 build-type = "Release"
-verbose = true
 
 
 # [tool.scikit-build.build]
