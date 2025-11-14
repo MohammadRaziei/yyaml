@@ -20,44 +20,48 @@ using write_opts = ::yyaml_write_opts;
 
 class document;
 
-struct error : public std::runtime_error {
+struct yyaml_error : public std::runtime_error {
     std::size_t pos = 0;
     std::size_t line = 0;
     std::size_t column = 0;
 
-    explicit error(const std::string &msg)
+    explicit yyaml_error(const std::string &msg)
         : std::runtime_error(msg) {}
 
-    explicit error(const ::yyaml_err &err)
+    explicit yyaml_error(const ::yyaml_err &err)
         : std::runtime_error(err.msg), pos(err.pos), line(err.line), column(err.column) {}
 };
 
 class node {
 public:
     node() = default;
+    ~node() {
+        if (_node) delete _node;
+        if (_doc) delete _doc;
+    }
 
-    type get_type() const { return node_ ? static_cast<type>(node_->type) : YYAML_NULL; }
+    type get_type() const { return _node ? static_cast<type>(_node->type) : YYAML_NULL; }
 
-    bool is_valid() const { return node_ != nullptr; }
+    bool is_valid() const { return _node != nullptr; }
     explicit operator bool() const { return is_valid(); }
 
-    bool isNull() const { return node_ && node_->type == YYAML_NULL; }
-    bool isBool() const { return node_ && node_->type == YYAML_BOOL; }
-    bool isInt() const { return node_ && node_->type == YYAML_INT; }
-    bool isDouble() const { return node_ && node_->type == YYAML_DOUBLE; }
-    bool isNumber() const { return isInt() || isDouble(); }
-    bool isString() const { return node_ && node_->type == YYAML_STRING; }
-    bool isSequence() const { return node_ && node_->type == YYAML_SEQUENCE; }
-    bool isMapping() const { return node_ && node_->type == YYAML_MAPPING; }
-    bool isScalar() const { return node_ && yyaml_is_scalar(node_); }
+    bool is_null() const { return _node && _node->type == YYAML_NULL; }
+    bool is_bool() const { return _node && _node->type == YYAML_BOOL; }
+    bool is_int() const { return _node && _node->type == YYAML_INT; }
+    bool is_double() const { return _node && _node->type == YYAML_DOUBLE; }
+    bool is_number() const { return is_int() || is_double(); }
+    bool is_string() const { return _node && _node->type == YYAML_STRING; }
+    bool is_sequence() const { return _node && _node->type == YYAML_SEQUENCE; }
+    bool is_mapping() const { return _node && _node->type == YYAML_MAPPING; }
+    bool is_scalar() const { return _node && yyaml_is_scalar(_node); }
 
-    std::nullptr_t asNull() const;
-    bool asBool() const;
-    std::int64_t asInt() const;
-    double asDouble() const;
-    double asNumber() const;
-    std::string asString() const;
-    std::string toString() const;
+    std::nullptr_t as_null() const;
+    bool as_bool() const;
+    std::int64_t as_int() const;
+    double as_double() const;
+    double as_number() const;
+    std::string as_string() const;
+    std::string to_string() const;
 
     node operator[](const std::string &key) const;
     node at(std::size_t index) const;
@@ -67,13 +71,13 @@ public:
     template <typename Func>
     void forEachMember(Func &&func) const;
 
-    const ::yyaml_node *raw() const { return node_; }
+    const ::yyaml_node *raw() const { return _node; }
 
 private:
-    const ::yyaml_doc *doc_ = nullptr;
-    const ::yyaml_node *node_ = nullptr;
+    const ::yyaml_doc *_doc = nullptr;
+    const ::yyaml_node *_node = nullptr;
 
-    node(const ::yyaml_doc *doc, const ::yyaml_node *node) : doc_(doc), node_(node) {}
+    node(const ::yyaml_doc *doc, const ::yyaml_node *node) : _doc(doc), _node(node) {}
 
     friend class document;
 
@@ -85,8 +89,12 @@ private:
 class document {
 public:
     document() = default;
-
-    explicit document(::yyaml_doc *doc) : handle_(doc) {}
+    ~document() {
+        if (_doc) {
+            yyaml_doc_free(_doc);
+        }
+    }
+    explicit document(::yyaml_doc *doc) : _doc(doc) {}
 
     document(document &&) noexcept = default;
     document &operator=(document &&) noexcept = default;
@@ -98,7 +106,7 @@ public:
         ::yyaml_err err = {0};
         ::yyaml_doc *doc = yyaml_read(yaml.data(), yaml.size(), opts, &err);
         if (!doc) {
-            throw error(err);
+            throw yyaml_error(err);
         }
         return document(doc);
     }
@@ -106,64 +114,57 @@ public:
     static document parse_file(const std::string &path, const read_opts *opts = nullptr) {
         std::ifstream input(path, std::ios::binary);
         if (!input) {
-            throw error("unable to open YAML file: " + path);
+            throw yyaml_error("unable to open YAML file: " + path);
         }
         std::string data((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
         return parse(data, opts);
     }
 
     node root() const {
-        if (!handle_) {
+        if (!_doc) {
             return {};
         }
-        return node(get(), yyaml_doc_get_root(get()));
+        return node(_doc, yyaml_doc_get_root(_doc));
     }
 
-    const ::yyaml_doc *get() const { return handle_.get(); }
 
-    bool valid() const { return static_cast<bool>(handle_); }
+    bool valid() const { return static_cast<bool>(_doc); }
 
     std::string dump(const write_opts *opts = nullptr) const;
 
 private:
-    struct deleter {
-        void operator()(::yyaml_doc *doc) const {
-            if (doc) {
-                yyaml_doc_free(doc);
-            }
-        }
-    };
 
-    std::unique_ptr<::yyaml_doc, deleter> handle_{nullptr};
+
+    ::yyaml_doc* _doc {nullptr};
 
     friend class node;
 };
 
 inline node node::operator[](const std::string &key) const {
-    if (!doc_ || !node_ || !isMapping()) {
+    if (!_doc || !_node || !is_mapping()) {
         return {};
     }
-    const ::yyaml_node *child = yyaml_map_get(doc_, node_, key.c_str());
-    return node(doc_, child);
+    const ::yyaml_node *child = yyaml_map_get(_doc, _node, key.c_str());
+    return node(_doc, child);
 }
 
 inline node node::at(std::size_t index) const {
-    if (!doc_ || !node_ || !isSequence()) {
+    if (!_doc || !_node || !is_sequence()) {
         return {};
     }
-    const ::yyaml_node *child = yyaml_seq_get(doc_, node_, index);
-    return node(doc_, child);
+    const ::yyaml_node *child = yyaml_seq_get(_doc, _node, index);
+    return node(_doc, child);
 }
 
 inline std::size_t node::size() const {
-    if (!node_) {
+    if (!_node) {
         return 0;
     }
-    if (isSequence()) {
-        return yyaml_seq_len(node_);
+    if (is_sequence()) {
+        return yyaml_seq_len(_node);
     }
-    if (isMapping()) {
-        return yyaml_map_len(node_);
+    if (is_mapping()) {
+        return yyaml_map_len(_node);
     }
     return 0;
 }
@@ -171,13 +172,13 @@ inline std::size_t node::size() const {
 template <typename Func>
 inline void node::forEachMember(Func &&func) const {
     require_bound();
-    if (!isMapping()) {
-        throw error("yyaml::node is not a mapping");
+    if (!is_mapping()) {
+        throw yyaml_error("yyaml::node is not a mapping");
     }
 
     const char *buf = yyaml_doc_get_scalar_buf(doc_);
     if (!buf) {
-        throw error("yyaml scalar buffer is null");
+        throw yyaml_error("yyaml scalar buffer is null");
     }
     const auto none = std::numeric_limits<uint32_t>::max();
     const ::yyaml_node *child = yyaml_doc_get(doc_, node_->child);
@@ -196,107 +197,107 @@ inline void node::forEachMember(Func &&func) const {
     }
 }
 
-inline std::nullptr_t node::asNull() const {
+inline std::nullptr_t node::as_null() const {
     require_bound();
-    if (!isNull()) {
-        throw error("yyaml::node is not null");
+    if (!is_null()) {
+        throw yyaml_error("yyaml::node is not null");
     }
     return nullptr;
 }
 
-inline bool node::asBool() const {
+inline bool node::as_bool() const {
     require_bound();
-    if (!isBool()) {
-        throw error("yyaml::node is not a bool");
+    if (!is_bool()) {
+        throw yyaml_error("yyaml::node is not a bool");
     }
-    return node_->val.boolean;
+    return _node->val.boolean;
 }
 
-inline std::int64_t node::asInt() const {
+inline std::int64_t node::as_int() const {
     require_bound();
-    if (!isInt()) {
-        throw error("yyaml::node is not an integer");
+    if (!is_int()) {
+        throw yyaml_error("yyaml::node is not an integer");
     }
-    return node_->val.integer;
+    return _node->val.integer;
 }
 
-inline double node::asDouble() const {
+inline double node::as_double() const {
     require_bound();
-    if (!isDouble()) {
-        throw error("yyaml::node is not a double");
+    if (!is_double()) {
+        throw yyaml_error("yyaml::node is not a double");
     }
-    return node_->val.real;
+    return _node->val.real;
 }
 
-inline double node::asNumber() const {
+inline double node::as_number() const {
     require_scalar();
-    if (isInt()) {
-        return static_cast<double>(asInt());
+    if (is_int()) {
+        return static_cast<double>(as_int());
     }
-    if (isDouble()) {
-        return asDouble();
+    if (is_double()) {
+        return as_double();
     }
-    throw error("yyaml::node is not numeric");
+    throw yyaml_error("yyaml::node is not numeric");
 }
 
-inline std::string node::asString() const {
+inline std::string node::as_string() const {
     return read_string();
 }
 
-inline std::string node::toString() const {
+inline std::string node::to_string() const {
     require_scalar();
-    switch (node_->type) {
+    switch (_node->type) {
     case YYAML_NULL:
         return "null";
     case YYAML_BOOL:
-        return node_->val.boolean ? "true" : "false";
+        return _node->val.boolean ? "true" : "false";
     case YYAML_INT:
-        return std::to_string(node_->val.integer);
+        return std::to_string(_node->val.integer);
     case YYAML_DOUBLE:
-        return std::to_string(node_->val.real);
+        return std::to_string(_node->val.real);
     case YYAML_STRING:
         return read_string();
     default:
-        throw error("yyaml::node holds an unknown scalar type");
+        throw yyaml_error("yyaml::node holds an unknown scalar type");
     }
 }
 
 inline void node::require_bound() const {
-    if (!doc_ || !node_) {
-        throw error("yyaml::node is not bound to a document");
+    if (!_doc || !_node) {
+        throw yyaml_error("yyaml::node is not bound to a document");
     }
 }
 
 inline void node::require_scalar() const {
     require_bound();
-    if (!isScalar()) {
-        throw error("yyaml::node is not a scalar");
+    if (!is_scalar()) {
+        throw yyaml_error("yyaml::node is not a scalar");
     }
 }
 
 inline std::string node::read_string() const {
     require_bound();
-    if (!isString()) {
-        throw error("yyaml::node is not a string");
+    if (!is_string()) {
+        throw yyaml_error("yyaml::node is not a string");
     }
-    const char *buf = yyaml_doc_get_scalar_buf(doc_);
+    const char *buf = yyaml_doc_get_scalar_buf(_doc);
     if (!buf) {
-        throw error("yyaml scalar buffer is null");
+        throw yyaml_error("yyaml scalar buffer is null");
     }
-    return std::string(buf + node_->val.str.ofs, node_->val.str.len);
+    return std::string(buf + _node->val.str.ofs, _node->val.str.len);
 }
 
 inline std::string document::dump(const write_opts *opts) const {
-    if (!handle_) {
-        throw error("yyaml::document is not initialized");
+    if (!_doc) {
+        throw yyaml_error("yyaml::document is not initialized");
     }
 
     char *buffer = nullptr;
     size_t len = 0;
     ::yyaml_err err = {0};
 
-    if (!yyaml_write(get(), &buffer, &len, opts, &err)) {
-        throw error(err);
+    if (!yyaml_write(_doc, &buffer, &len, opts, &err)) {
+        throw yyaml_error(err);
     }
 
     std::string out(buffer, len);
