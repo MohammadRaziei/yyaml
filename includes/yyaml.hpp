@@ -73,10 +73,9 @@ public:
     void for_each_member(Func &&func) const;
 
 private:
-    const ::yyaml_doc *_doc = nullptr;
     const ::yyaml_node *_node = nullptr;
 
-    node(const ::yyaml_doc *doc, const ::yyaml_node *node) : _doc(doc), _node(node) {}
+    explicit node(const ::yyaml_node *node) : _node(node) {}
 
     friend class document;
 
@@ -121,7 +120,7 @@ public:
         if (!_doc) {
             return {};
         }
-        return node(_doc, yyaml_doc_get_root(_doc));
+        return node(yyaml_doc_get_root(_doc));
     }
 
     bool valid() const { return static_cast<bool>(_doc); }
@@ -133,19 +132,21 @@ private:
 };
 
 inline node node::at(const std::string &key) const {
-    if (!_doc || !_node || !is_mapping()) {
+    require_bound();
+    if (!is_mapping()) {
         throw yyaml_error("yyaml::node only work at mapping type");
     }
-    const ::yyaml_node *child = yyaml_map_get(_doc, _node, key.c_str());
-    return node(_doc, child);
+    const ::yyaml_node *child = yyaml_map_get(_node, key.c_str());
+    return node(child);
 }
 
 inline node node::at(std::size_t index) const {
-    if (!_doc || !_node || !is_sequence()) {
+    require_bound();
+    if (!is_sequence()) {
         throw yyaml_error("yyaml::node only work at sequence type");
     }
-    const ::yyaml_node *child = yyaml_seq_get(_doc, _node, index);
-    return node(_doc, child);
+    const ::yyaml_node *child = yyaml_seq_get(_node, index);
+    return node(child);
 }
 
 inline node node::operator[](const std::string &key) const {
@@ -176,24 +177,25 @@ inline void node::for_each_member(Func &&func) const {
         throw yyaml_error("yyaml::node is not a mapping");
     }
 
-    const char *buf = yyaml_doc_get_scalar_buf(_doc);
+    const ::yyaml_doc *doc = _node->doc;
+    const char *buf = yyaml_doc_get_scalar_buf(doc);
     if (!buf) {
         throw yyaml_error("yyaml scalar buffer is null");
     }
     const auto none = std::numeric_limits<uint32_t>::max();
-    const ::yyaml_node *child = yyaml_doc_get(_doc, _node->child);
+    const ::yyaml_node *child = yyaml_doc_get(doc, _node->child);
 
     while (child) {
         std::string key;
         key.assign(buf + static_cast<std::size_t>(child->extra),
                    static_cast<std::size_t>(child->flags));
 
-        func(key, node(_doc, child));
+        func(key, node(child));
 
         if (child->next == none) {
             break;
         }
-        child = yyaml_doc_get(_doc, child->next);
+        child = yyaml_doc_get(doc, child->next);
     }
 }
 
@@ -245,25 +247,23 @@ inline std::string node::as_string() const {
 }
 
 inline std::string node::to_string() const {
-    require_scalar();
-    switch (_node->type) {
-    case YYAML_NULL:
-        return "null";
-    case YYAML_BOOL:
-        return _node->val.boolean ? "true" : "false";
-    case YYAML_INT:
-        return std::to_string(_node->val.integer);
-    case YYAML_DOUBLE:
-        return std::to_string(_node->val.real);
-    case YYAML_STRING:
-        return read_string();
-    default:
-        throw yyaml_error("yyaml::node holds an unknown scalar type");
+    require_bound();
+
+    char *buffer = nullptr;
+    size_t len = 0;
+    ::yyaml_err err = {0};
+
+    if (!yyaml_write(_node, &buffer, &len, nullptr, &err)) {
+        throw yyaml_error(err);
     }
+
+    std::string out(buffer, len);
+    yyaml_free_string(buffer);
+    return out;
 }
 
 inline void node::require_bound() const {
-    if (!_doc || !_node) {
+    if (!_node || !_node->doc) {
         throw yyaml_error("yyaml::node is not bound to a document");
     }
 }
@@ -280,7 +280,7 @@ inline std::string node::read_string() const {
     if (!is_string()) {
         throw yyaml_error("yyaml::node is not a string");
     }
-    const char *buf = yyaml_doc_get_scalar_buf(_doc);
+    const char *buf = yyaml_doc_get_scalar_buf(_node->doc);
     if (!buf) {
         throw yyaml_error("yyaml scalar buffer is null");
     }
@@ -295,8 +295,9 @@ inline std::string document::dump(const write_opts *opts) const {
     char *buffer = nullptr;
     size_t len = 0;
     ::yyaml_err err = {0};
+    const ::yyaml_node *root = yyaml_doc_get_root(_doc);
 
-    if (!yyaml_write(_doc, &buffer, &len, opts, &err)) {
+    if (!yyaml_write(root, &buffer, &len, opts, &err)) {
         throw yyaml_error(err);
     }
 

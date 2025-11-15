@@ -69,7 +69,7 @@ int main(void) {
     }
 
     {
-        const yyaml_node *warehouse = yyaml_map_get(doc, root, "warehouse");
+        const yyaml_node *warehouse = yyaml_map_get(root, "warehouse");
         char city[128];
         const yyaml_node *temperature;
         const yyaml_node *active;
@@ -77,10 +77,10 @@ int main(void) {
         if (!warehouse || warehouse->type != YYAML_MAPPING) {
             puts("data[\"warehouse\"]: <missing mapping>");
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, warehouse, "city"), city, sizeof(city));
+            copy_scalar_string(doc, yyaml_map_get(warehouse, "city"), city, sizeof(city));
             printf("data[\"warehouse\"][\"city\"]: %s\n", city[0] ? city : "<missing>");
 
-            temperature = yyaml_map_get(doc, warehouse, "temperature");
+            temperature = yyaml_map_get(warehouse, "temperature");
             if (temperature && temperature->type == YYAML_DOUBLE) {
                 printf("data[\"warehouse\"][\"temperature\"]: %.1f\n", temperature->val.real);
             } else if (temperature && temperature->type == YYAML_INT) {
@@ -89,7 +89,7 @@ int main(void) {
                 puts("data[\"warehouse\"][\"temperature\"]: <missing>");
             }
 
-            active = yyaml_map_get(doc, warehouse, "active");
+            active = yyaml_map_get(warehouse, "active");
             if (active && active->type == YYAML_BOOL) {
                 printf("data[\"warehouse\"][\"active\"]: %s\n",
                        active->val.boolean ? "true" : "false");
@@ -100,11 +100,11 @@ int main(void) {
     }
 
     {
-        const yyaml_node *items = yyaml_map_get(doc, root, "items");
+        const yyaml_node *items = yyaml_map_get(root, "items");
         const yyaml_node *item0 =
-            (items && items->type == YYAML_SEQUENCE) ? yyaml_seq_get(doc, items, 0) : NULL;
+            (items && items->type == YYAML_SEQUENCE) ? yyaml_seq_get(items, 0) : NULL;
         const yyaml_node *item1 =
-            (items && items->type == YYAML_SEQUENCE) ? yyaml_seq_get(doc, items, 1) : NULL;
+            (items && items->type == YYAML_SEQUENCE) ? yyaml_seq_get(items, 1) : NULL;
         char id0[32];
         char id1[32];
         char name0[128];
@@ -115,9 +115,9 @@ int main(void) {
         if (!item0 || item0->type != YYAML_MAPPING) {
             puts("data[\"items\"][0]: <missing mapping>");
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, item0, "id"), id0, sizeof(id0));
-            copy_scalar_string(doc, yyaml_map_get(doc, item0, "name"), name0, sizeof(name0));
-            quantity0 = yyaml_map_get(doc, item0, "quantity");
+            copy_scalar_string(doc, yyaml_map_get(item0, "id"), id0, sizeof(id0));
+            copy_scalar_string(doc, yyaml_map_get(item0, "name"), name0, sizeof(name0));
+            quantity0 = yyaml_map_get(item0, "quantity");
             printf("data[\"items\"][0][\"id\"]: %s\n", id0[0] ? id0 : "<missing>");
             printf("data[\"items\"][0][\"name\"]: %s\n", name0[0] ? name0 : "<missing>");
             if (quantity0 && quantity0->type == YYAML_INT) {
@@ -133,9 +133,9 @@ int main(void) {
         if (!item1 || item1->type != YYAML_MAPPING) {
             puts("data[\"items\"][1]: <missing mapping>");
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, item1, "id"), id1, sizeof(id1));
-            copy_scalar_string(doc, yyaml_map_get(doc, item1, "name"), name1, sizeof(name1));
-            quantity1 = yyaml_map_get(doc, item1, "quantity");
+            copy_scalar_string(doc, yyaml_map_get(item1, "id"), id1, sizeof(id1));
+            copy_scalar_string(doc, yyaml_map_get(item1, "name"), name1, sizeof(name1));
+            quantity1 = yyaml_map_get(item1, "quantity");
             printf("data[\"items\"][1][\"id\"]: %s\n", id1[0] ? id1 : "<missing>");
             printf("data[\"items\"][1][\"name\"]: %s\n", name1[0] ? name1 : "<missing>");
             if (quantity1 && quantity1->type == YYAML_INT) {

@@ -109,36 +109,36 @@ void test_load_simple_scalars(void) {
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     
     // Test null value
-    const yyaml_node *null_val = yyaml_map_get(doc, root, "null_value");
+    const yyaml_node *null_val = yyaml_map_get(root, "null_value");
     TEST_ASSERT_NOT_NULL(null_val);
     TEST_ASSERT_EQUAL(YYAML_NULL, null_val->type);
     
     // Test boolean true
-    const yyaml_node *bool_true = yyaml_map_get(doc, root, "boolean_true");
+    const yyaml_node *bool_true = yyaml_map_get(root, "boolean_true");
     TEST_ASSERT_NOT_NULL(bool_true);
     TEST_ASSERT_EQUAL(YYAML_BOOL, bool_true->type);
     TEST_ASSERT_TRUE(bool_true->val.boolean);
     
     // Test boolean false
-    const yyaml_node *bool_false = yyaml_map_get(doc, root, "boolean_false");
+    const yyaml_node *bool_false = yyaml_map_get(root, "boolean_false");
     TEST_ASSERT_NOT_NULL(bool_false);
     TEST_ASSERT_EQUAL(YYAML_BOOL, bool_false->type);
     TEST_ASSERT_FALSE(bool_false->val.boolean);
     
     // Test integer positive
-    const yyaml_node *int_pos = yyaml_map_get(doc, root, "integer_positive");
+    const yyaml_node *int_pos = yyaml_map_get(root, "integer_positive");
     TEST_ASSERT_NOT_NULL(int_pos);
     TEST_ASSERT_EQUAL(YYAML_INT, int_pos->type);
     TEST_ASSERT_EQUAL(42, int_pos->val.integer);
     
     // Test integer negative
-    const yyaml_node *int_neg = yyaml_map_get(doc, root, "integer_negative");
+    const yyaml_node *int_neg = yyaml_map_get(root, "integer_negative");
     TEST_ASSERT_NOT_NULL(int_neg);
     TEST_ASSERT_EQUAL(YYAML_INT, int_neg->type);
     TEST_ASSERT_EQUAL(-123, int_neg->val.integer);
     
     // Test float number
-    const yyaml_node *float_val = yyaml_map_get(doc, root, "float_number");
+    const yyaml_node *float_val = yyaml_map_get(root, "float_number");
     TEST_ASSERT_NOT_NULL(float_val);
     TEST_ASSERT_EQUAL(YYAML_DOUBLE, float_val->type);
     TEST_ASSERT_TRUE(fabs(float_val->val.real - 3.14159) < 0.0001);
@@ -159,19 +159,19 @@ void test_load_sequences(void) {
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     
     // Test simple list
-    const yyaml_node *simple_list = yyaml_map_get(doc, root, "simple_list");
+    const yyaml_node *simple_list = yyaml_map_get(root, "simple_list");
     TEST_ASSERT_NOT_NULL(simple_list);
     TEST_ASSERT_EQUAL(YYAML_SEQUENCE, simple_list->type);
     TEST_ASSERT_EQUAL(3, yyaml_seq_len(simple_list));
     
     // Test mixed types sequence
-    const yyaml_node *mixed_types = yyaml_map_get(doc, root, "mixed_types");
+    const yyaml_node *mixed_types = yyaml_map_get(root, "mixed_types");
     TEST_ASSERT_NOT_NULL(mixed_types);
     TEST_ASSERT_EQUAL(YYAML_SEQUENCE, mixed_types->type);
     TEST_ASSERT_EQUAL(5, yyaml_seq_len(mixed_types));
     
     // Test inline sequence
-    const yyaml_node *inline_seq = yyaml_map_get(doc, root, "inline_sequence");
+    const yyaml_node *inline_seq = yyaml_map_get(root, "inline_sequence");
     TEST_ASSERT_NOT_NULL(inline_seq);
     TEST_ASSERT_EQUAL(YYAML_SEQUENCE, inline_seq->type);
     TEST_ASSERT_EQUAL(3, yyaml_seq_len(inline_seq));
@@ -192,22 +192,22 @@ void test_load_mappings(void) {
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     
     // Test simple map
-    const yyaml_node *simple_map = yyaml_map_get(doc, root, "simple_map");
+    const yyaml_node *simple_map = yyaml_map_get(root, "simple_map");
     TEST_ASSERT_NOT_NULL(simple_map);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, simple_map->type);
     TEST_ASSERT_EQUAL(3, yyaml_map_len(simple_map));
     
     // Test nested maps
-    const yyaml_node *nested_maps = yyaml_map_get(doc, root, "nested_maps");
+    const yyaml_node *nested_maps = yyaml_map_get(root, "nested_maps");
     TEST_ASSERT_NOT_NULL(nested_maps);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, nested_maps->type);
     
-    const yyaml_node *person = yyaml_map_get(doc, nested_maps, "person");
+    const yyaml_node *person = yyaml_map_get(nested_maps, "person");
     TEST_ASSERT_NOT_NULL(person);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, person->type);
     
     // Test complex structure
-    const yyaml_node *complex_struct = yyaml_map_get(doc, root, "complex_structure");
+    const yyaml_node *complex_struct = yyaml_map_get(root, "complex_structure");
     TEST_ASSERT_NOT_NULL(complex_struct);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, complex_struct->type);
     
@@ -226,7 +226,8 @@ void test_write_read_cycle(void) {
     // Write to /tmp
     char* output = NULL;
     size_t output_len = 0;
-    bool result = yyaml_write(doc, &output, &output_len, NULL, &err);
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_NOT_NULL(output);
     
@@ -276,7 +277,8 @@ void test_write_read_complex(void) {
     // Write to /tmp
     char* output = NULL;
     size_t output_len = 0;
-    bool result = yyaml_write(doc, &output, &output_len, NULL, &err);
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_NOT_NULL(output);
     

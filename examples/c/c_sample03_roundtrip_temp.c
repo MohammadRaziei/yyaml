@@ -72,13 +72,13 @@ static const yyaml_node *get_sequence_item(const yyaml_doc *doc,
     if (!sequence || sequence->type != YYAML_SEQUENCE) {
         return NULL;
     }
-    return yyaml_seq_get(doc, sequence, index);
+    return yyaml_seq_get(sequence, index);
 }
 
 static void describe_deployment(const yyaml_doc *doc, const char *label) {
     const yyaml_node *root = yyaml_doc_get_root(doc);
     const yyaml_node *deployment =
-        (root && root->type == YYAML_MAPPING) ? yyaml_map_get(doc, root, "deployment") : NULL;
+        (root && root->type == YYAML_MAPPING) ? yyaml_map_get(root, "deployment") : NULL;
     char name[128];
     const yyaml_node *enabled;
     const yyaml_node *replicas;
@@ -90,11 +90,11 @@ static void describe_deployment(const yyaml_doc *doc, const char *label) {
         return;
     }
 
-    copy_scalar_string(doc, yyaml_map_get(doc, deployment, "name"), name, sizeof(name));
-    enabled = yyaml_map_get(doc, deployment, "enabled");
-    replicas = yyaml_map_get(doc, deployment, "replicas");
-    containers = yyaml_map_get(doc, deployment, "containers");
-    volumes = yyaml_map_get(doc, deployment, "volumes");
+    copy_scalar_string(doc, yyaml_map_get(deployment, "name"), name, sizeof(name));
+    enabled = yyaml_map_get(deployment, "enabled");
+    replicas = yyaml_map_get(deployment, "replicas");
+    containers = yyaml_map_get(deployment, "containers");
+    volumes = yyaml_map_get(deployment, "volumes");
 
     printf("%s deployment[\"name\"]: %s\n", label, name[0] ? name : "<missing>");
     if (enabled && enabled->type == YYAML_BOOL) {
@@ -117,10 +117,10 @@ static void describe_deployment(const yyaml_doc *doc, const char *label) {
         char second_name[64];
         char second_image[128];
         const yyaml_node *first_env = first && first->type == YYAML_MAPPING
-                                          ? yyaml_map_get(doc, first, "env")
+                                          ? yyaml_map_get(first, "env")
                                           : NULL;
         const yyaml_node *second_env = second && second->type == YYAML_MAPPING
-                                           ? yyaml_map_get(doc, second, "env")
+                                           ? yyaml_map_get(second, "env")
                                            : NULL;
         char first_debug[32];
         char first_timeout[32];
@@ -130,17 +130,17 @@ static void describe_deployment(const yyaml_doc *doc, const char *label) {
         if (!first || first->type != YYAML_MAPPING) {
             printf("%s deployment[\"containers\"][0]: <missing mapping>\n", label);
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, first, "name"), first_name, sizeof(first_name));
-            copy_scalar_string(doc, yyaml_map_get(doc, first, "image"), first_image,
+            copy_scalar_string(doc, yyaml_map_get(first, "name"), first_name, sizeof(first_name));
+            copy_scalar_string(doc, yyaml_map_get(first, "image"), first_image,
                                sizeof(first_image));
             copy_scalar_string(doc,
                                (first_env && first_env->type == YYAML_MAPPING)
-                                   ? yyaml_map_get(doc, first_env, "DEBUG")
+                                   ? yyaml_map_get(first_env, "DEBUG")
                                    : NULL,
                                first_debug, sizeof(first_debug));
             copy_scalar_string(doc,
                                (first_env && first_env->type == YYAML_MAPPING)
-                                   ? yyaml_map_get(doc, first_env, "TIMEOUT")
+                                   ? yyaml_map_get(first_env, "TIMEOUT")
                                    : NULL,
                                first_timeout, sizeof(first_timeout));
             printf("%s deployment[\"containers\"][0][\"name\"]: %s\n", label,
@@ -156,18 +156,18 @@ static void describe_deployment(const yyaml_doc *doc, const char *label) {
         if (!second || second->type != YYAML_MAPPING) {
             printf("%s deployment[\"containers\"][1]: <missing mapping>\n", label);
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, second, "name"), second_name,
+            copy_scalar_string(doc, yyaml_map_get(second, "name"), second_name,
                                sizeof(second_name));
-            copy_scalar_string(doc, yyaml_map_get(doc, second, "image"), second_image,
+            copy_scalar_string(doc, yyaml_map_get(second, "image"), second_image,
                                sizeof(second_image));
             copy_scalar_string(doc,
                                (second_env && second_env->type == YYAML_MAPPING)
-                                   ? yyaml_map_get(doc, second_env, "DEBUG")
+                                   ? yyaml_map_get(second_env, "DEBUG")
                                    : NULL,
                                second_debug, sizeof(second_debug));
             copy_scalar_string(doc,
                                (second_env && second_env->type == YYAML_MAPPING)
-                                   ? yyaml_map_get(doc, second_env, "TIMEOUT")
+                                   ? yyaml_map_get(second_env, "TIMEOUT")
                                    : NULL,
                                second_timeout, sizeof(second_timeout));
             printf("%s deployment[\"containers\"][1][\"name\"]: %s\n", label,
@@ -183,13 +183,13 @@ static void describe_deployment(const yyaml_doc *doc, const char *label) {
 
     {
         const yyaml_node *config =
-            (volumes && volumes->type == YYAML_MAPPING) ? yyaml_map_get(doc, volumes, "config")
+            (volumes && volumes->type == YYAML_MAPPING) ? yyaml_map_get(volumes, "config")
                                                         : NULL;
         const yyaml_node *mount_path =
-            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(doc, config, "mountPath")
+            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(config, "mountPath")
                                                       : NULL;
         const yyaml_node *read_only =
-            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(doc, config, "readOnly")
+            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(config, "readOnly")
                                                       : NULL;
         char mount_value[128];
 
@@ -212,7 +212,7 @@ static void print_check(const char *label, bool ok) {
 static void verify_expected(const yyaml_doc *doc) {
     const yyaml_node *root = yyaml_doc_get_root(doc);
     const yyaml_node *deployment =
-        (root && root->type == YYAML_MAPPING) ? yyaml_map_get(doc, root, "deployment") : NULL;
+        (root && root->type == YYAML_MAPPING) ? yyaml_map_get(root, "deployment") : NULL;
     const yyaml_node *containers;
     const yyaml_node *volumes;
     char text[128];
@@ -223,18 +223,18 @@ static void verify_expected(const yyaml_doc *doc) {
         return;
     }
 
-    copy_scalar_string(doc, yyaml_map_get(doc, deployment, "name"), text, sizeof(text));
+    copy_scalar_string(doc, yyaml_map_get(deployment, "name"), text, sizeof(text));
     print_check("deployment[\"name\"] == core-services", strcmp(text, "core-services") == 0);
 
-    node = yyaml_map_get(doc, deployment, "enabled");
+    node = yyaml_map_get(deployment, "enabled");
     print_check("deployment[\"enabled\"] == true",
                 node && node->type == YYAML_BOOL && node->val.boolean);
 
-    node = yyaml_map_get(doc, deployment, "replicas");
+    node = yyaml_map_get(deployment, "replicas");
     print_check("deployment[\"replicas\"] == 3",
                 node && node->type == YYAML_INT && node->val.integer == 3);
 
-    containers = yyaml_map_get(doc, deployment, "containers");
+    containers = yyaml_map_get(deployment, "containers");
     {
         const yyaml_node *first = get_sequence_item(doc, containers, 0);
         const yyaml_node *second = get_sequence_item(doc, containers, 1);
@@ -242,57 +242,57 @@ static void verify_expected(const yyaml_doc *doc) {
 
         copy_scalar_string(doc,
                            (first && first->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, first, "name")
+                               ? yyaml_map_get(first, "name")
                                : NULL,
                            text, sizeof(text));
         print_check("containers[0].name == api", strcmp(text, "api") == 0);
         copy_scalar_string(doc,
                            (first && first->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, first, "image")
+                               ? yyaml_map_get(first, "image")
                                : NULL,
                            text, sizeof(text));
         print_check("containers[0].image == registry.example.com/api:v1",
                     strcmp(text, "registry.example.com/api:v1") == 0);
-        env = (first && first->type == YYAML_MAPPING) ? yyaml_map_get(doc, first, "env") : NULL;
-        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG") : NULL;
+        env = (first && first->type == YYAML_MAPPING) ? yyaml_map_get(first, "env") : NULL;
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(env, "DEBUG") : NULL;
         print_check("containers[0].env.DEBUG == true",
                     node && node->type == YYAML_BOOL && node->val.boolean);
-        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "TIMEOUT") : NULL;
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(env, "TIMEOUT") : NULL;
         print_check("containers[0].env.TIMEOUT == 30",
                     node && node->type == YYAML_INT && node->val.integer == 30);
 
         copy_scalar_string(doc,
                            (second && second->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, second, "name")
+                               ? yyaml_map_get(second, "name")
                                : NULL,
                            text, sizeof(text));
         print_check("containers[1].name == worker", strcmp(text, "worker") == 0);
         copy_scalar_string(doc,
                            (second && second->type == YYAML_MAPPING)
-                               ? yyaml_map_get(doc, second, "image")
+                               ? yyaml_map_get(second, "image")
                                : NULL,
                            text, sizeof(text));
         print_check("containers[1].image == registry.example.com/worker:v2",
                     strcmp(text, "registry.example.com/worker:v2") == 0);
-        env = (second && second->type == YYAML_MAPPING) ? yyaml_map_get(doc, second, "env") : NULL;
-        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "DEBUG") : NULL;
+        env = (second && second->type == YYAML_MAPPING) ? yyaml_map_get(second, "env") : NULL;
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(env, "DEBUG") : NULL;
         print_check("containers[1].env.DEBUG == false",
                     node && node->type == YYAML_BOOL && !node->val.boolean);
-        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(doc, env, "TIMEOUT") : NULL;
+        node = (env && env->type == YYAML_MAPPING) ? yyaml_map_get(env, "TIMEOUT") : NULL;
         print_check("containers[1].env.TIMEOUT == 120",
                     node && node->type == YYAML_INT && node->val.integer == 120);
     }
 
-    volumes = yyaml_map_get(doc, deployment, "volumes");
+    volumes = yyaml_map_get(deployment, "volumes");
     {
         const yyaml_node *config =
-            (volumes && volumes->type == YYAML_MAPPING) ? yyaml_map_get(doc, volumes, "config")
+            (volumes && volumes->type == YYAML_MAPPING) ? yyaml_map_get(volumes, "config")
                                                         : NULL;
         const yyaml_node *mount_path =
-            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(doc, config, "mountPath")
+            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(config, "mountPath")
                                                       : NULL;
         const yyaml_node *read_only =
-            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(doc, config, "readOnly")
+            (config && config->type == YYAML_MAPPING) ? yyaml_map_get(config, "readOnly")
                                                       : NULL;
         copy_scalar_string(doc, mount_path, text, sizeof(text));
         print_check("volumes.config.mountPath == /etc/config", strcmp(text, "/etc/config") == 0);
@@ -319,7 +319,8 @@ int main(void) {
     puts("--- Parsed deployment specification ---");
     describe_deployment(doc, "parsed");
 
-    ok = yyaml_write(doc, &serialized, &serialized_len, NULL, &err);
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    ok = yyaml_write(root, &serialized, &serialized_len, NULL, &err);
     if (!ok) {
         fprintf(stderr, "Failed to serialize YAML: %s\n", err.msg);
         yyaml_doc_free(doc);

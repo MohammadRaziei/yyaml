@@ -67,6 +67,7 @@ typedef enum yyaml_type {
 typedef struct yyaml_doc yyaml_doc;
 
 typedef struct yyaml_node {
+    const yyaml_doc *doc; /* owning document */
     uint32_t type;        /* yyaml_type */
     uint32_t flags;       /* reserved for future use */
     uint32_t parent;      /* index of parent node, UINT32_MAX if none */
@@ -144,12 +145,10 @@ YYAML_INLINE bool yyaml_str_eq(const yyaml_doc *doc, const yyaml_node *node,
     return true;
 }
 
-YYAML_API const yyaml_node *yyaml_map_get(const yyaml_doc *doc,
-                                          const yyaml_node *map,
+YYAML_API const yyaml_node *yyaml_map_get(const yyaml_node *map,
                                           const char *key);
 
-YYAML_API const yyaml_node *yyaml_seq_get(const yyaml_doc *doc,
-                                          const yyaml_node *seq,
+YYAML_API const yyaml_node *yyaml_seq_get(const yyaml_node *seq,
                                           size_t index);
 
 YYAML_API size_t yyaml_seq_len(const yyaml_node *seq);
@@ -158,7 +157,7 @@ YYAML_API size_t yyaml_map_len(const yyaml_node *map);
 
 /* --------------------------- writing API --------------------------------- */
 
-YYAML_API bool yyaml_write(const yyaml_doc *doc, char **out, size_t *out_len,
+YYAML_API bool yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
                            const yyaml_write_opts *opts, yyaml_err *err);
 
 

@@ -70,12 +70,12 @@ int main(void) {
 
     {
         char name[128];
-        copy_scalar_string(doc, yyaml_map_get(doc, root, "name"), name, sizeof(name));
+        copy_scalar_string(doc, yyaml_map_get(root, "name"), name, sizeof(name));
         printf("data[\"name\"]: %s\n", name[0] ? name : "<missing>");
     }
 
     {
-        const yyaml_node *version = yyaml_map_get(doc, root, "version");
+        const yyaml_node *version = yyaml_map_get(root, "version");
         if (version && version->type == YYAML_INT) {
             printf("data[\"version\"]: %lld\n", (long long)version->val.integer);
         } else if (version && version->type == YYAML_DOUBLE) {
@@ -86,7 +86,7 @@ int main(void) {
     }
 
     {
-        const yyaml_node *debug = yyaml_map_get(doc, root, "debug");
+        const yyaml_node *debug = yyaml_map_get(root, "debug");
         if (debug && debug->type == YYAML_BOOL) {
             printf("data[\"debug\"]: %s\n", debug->val.boolean ? "true" : "false");
         } else {
@@ -95,23 +95,23 @@ int main(void) {
     }
 
     {
-        const yyaml_node *features = yyaml_map_get(doc, root, "features");
+        const yyaml_node *features = yyaml_map_get(root, "features");
         char feature0[128];
         char feature1[128];
         char feature2[128];
         copy_scalar_string(doc,
                            (features && features->type == YYAML_SEQUENCE)
-                               ? yyaml_seq_get(doc, features, 0)
+                               ? yyaml_seq_get(features, 0)
                                : NULL,
                            feature0, sizeof(feature0));
         copy_scalar_string(doc,
                            (features && features->type == YYAML_SEQUENCE)
-                               ? yyaml_seq_get(doc, features, 1)
+                               ? yyaml_seq_get(features, 1)
                                : NULL,
                            feature1, sizeof(feature1));
         copy_scalar_string(doc,
                            (features && features->type == YYAML_SEQUENCE)
-                               ? yyaml_seq_get(doc, features, 2)
+                               ? yyaml_seq_get(features, 2)
                                : NULL,
                            feature2, sizeof(feature2));
         printf("data[\"features\"][0]: %s\n", feature0[0] ? feature0 : "<missing>");
@@ -120,7 +120,7 @@ int main(void) {
     }
 
     {
-        const yyaml_node *database = yyaml_map_get(doc, root, "database");
+        const yyaml_node *database = yyaml_map_get(root, "database");
         char host[128];
         const yyaml_node *port;
         const yyaml_node *tags;
@@ -130,10 +130,10 @@ int main(void) {
         if (!database || database->type != YYAML_MAPPING) {
             puts("data[\"database\"]: <missing mapping>");
         } else {
-            copy_scalar_string(doc, yyaml_map_get(doc, database, "host"), host, sizeof(host));
+            copy_scalar_string(doc, yyaml_map_get(database, "host"), host, sizeof(host));
             printf("data[\"database\"][\"host\"]: %s\n", host[0] ? host : "<missing>");
 
-            port = yyaml_map_get(doc, database, "port");
+            port = yyaml_map_get(database, "port");
             if (port && port->type == YYAML_INT) {
                 printf("data[\"database\"][\"port\"]: %lld\n", (long long)port->val.integer);
             } else if (port && port->type == YYAML_DOUBLE) {
@@ -142,15 +142,15 @@ int main(void) {
                 puts("data[\"database\"][\"port\"]: <missing>");
             }
 
-            tags = yyaml_map_get(doc, database, "tags");
+            tags = yyaml_map_get(database, "tags");
             copy_scalar_string(doc,
                                (tags && tags->type == YYAML_SEQUENCE)
-                                   ? yyaml_seq_get(doc, tags, 0)
+                                   ? yyaml_seq_get(tags, 0)
                                    : NULL,
                                tag0, sizeof(tag0));
             copy_scalar_string(doc,
                                (tags && tags->type == YYAML_SEQUENCE)
-                                   ? yyaml_seq_get(doc, tags, 1)
+                                   ? yyaml_seq_get(tags, 1)
                                    : NULL,
                                tag1, sizeof(tag1));
             printf("data[\"database\"][\"tags\"][0]: %s\n", tag0[0] ? tag0 : "<missing>");

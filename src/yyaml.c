@@ -74,6 +74,7 @@ static uint32_t yyaml_doc_add_node(yyaml_doc *doc, yyaml_type type) {
     uint32_t idx;
     if (!yyaml_doc_reserve_nodes(doc, doc->node_count + 1)) return YYAML_INDEX_NONE;
     idx = (uint32_t)doc->node_count++;
+    doc->nodes[idx].doc = doc;
     doc->nodes[idx].type = type;
     doc->nodes[idx].flags = 0;
     doc->nodes[idx].parent = YYAML_INDEX_NONE;
@@ -674,12 +675,14 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                             yyaml_doc_add_node(doc, YYAML_STRING);
                         if (idx == YYAML_INDEX_NONE) goto fail_nomem;
                         doc->nodes[idx] = temp_node;
+                        doc->nodes[idx].doc = doc;
                         yyaml_doc_link_child(doc, parent_level, idx);
                     } else {
                         uint32_t idx =
                             yyaml_doc_add_node(doc, temp_node.type);
                         if (idx == YYAML_INDEX_NONE) goto fail_nomem;
                         doc->nodes[idx] = temp_node;
+                        doc->nodes[idx].doc = doc;
                         yyaml_doc_link_child(doc, parent_level, idx);
                     }
                 }
@@ -912,6 +915,7 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
         doc->root = yyaml_doc_add_node(doc, temp_node.type);
         if (doc->root == YYAML_INDEX_NONE) goto fail_nomem;
         doc->nodes[doc->root] = temp_node;
+        doc->nodes[doc->root].doc = doc;
     }
 
     if (doc->root == YYAML_INDEX_NONE) {
@@ -954,14 +958,16 @@ YYAML_API size_t yyaml_doc_node_count(const yyaml_doc *doc) {
     return doc ? doc->node_count : 0;
 }
 
-YYAML_API const yyaml_node *yyaml_map_get(const yyaml_doc *doc,
-                                          const yyaml_node *map,
+YYAML_API const yyaml_node *yyaml_map_get(const yyaml_node *map,
                                           const char *key) {
+    const yyaml_doc *doc;
     const yyaml_node *node;
     uint32_t idx;
     size_t key_len;
     const char *buf;
-    if (!doc || !map || map->type != YYAML_MAPPING || !key) return NULL;
+    if (!map || map->type != YYAML_MAPPING || !key) return NULL;
+    doc = map->doc;
+    if (!doc) return NULL;
     buf = doc->scalars;
     key_len = strlen(key);
     idx = map->child;
@@ -977,11 +983,13 @@ YYAML_API const yyaml_node *yyaml_map_get(const yyaml_doc *doc,
     return node;
 }
 
-YYAML_API const yyaml_node *yyaml_seq_get(const yyaml_doc *doc,
-                                          const yyaml_node *seq,
+YYAML_API const yyaml_node *yyaml_seq_get(const yyaml_node *seq,
                                           size_t index) {
     uint32_t idx;
-    if (!doc || !seq || seq->type != YYAML_SEQUENCE) return NULL;
+    const yyaml_doc *doc;
+    if (!seq || seq->type != YYAML_SEQUENCE) return NULL;
+    doc = seq->doc;
+    if (!doc) return NULL;
     idx = seq->child;
     while (idx != YYAML_INDEX_NONE && index--) {
         idx = doc->nodes[idx].next;
@@ -1253,10 +1261,10 @@ static bool yyaml_write_node_internal(const yyaml_doc *doc,
     }
 }
 
-YYAML_API bool yyaml_write(const yyaml_doc *doc, char **out, size_t *out_len,
+YYAML_API bool yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
                            const yyaml_write_opts *opts, yyaml_err *err) {
     yyaml_writer wr = {0};
-    const yyaml_node *root;
+    const yyaml_doc *doc = root ? root->doc : NULL;
     size_t indent = 2;
     bool final_newline = true;
     if (!out) {
@@ -1269,11 +1277,10 @@ YYAML_API bool yyaml_write(const yyaml_doc *doc, char **out, size_t *out_len,
         if (opts->indent) indent = opts->indent;
         final_newline = opts->final_newline;
     }
-    if (!doc) {
-        yyaml_set_error(err, 0, 0, 0, "document is NULL");
+    if (root && !doc) {
+        yyaml_set_error(err, 0, 0, 0, "node is not bound to a document");
         return false;
     }
-    root = yyaml_doc_get_root(doc);
     if (!root) {
         if (!yyaml_writer_write(&wr, "null", 4)) goto nomem;
     } else {

@@ -80,7 +80,7 @@ void test_parse_negative_integer(void) {
     TEST_ASSERT_NOT_NULL(root);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     
-    const yyaml_node *value = yyaml_map_get(doc, root, "value");
+    const yyaml_node *value = yyaml_map_get(root, "value");
     TEST_ASSERT_NOT_NULL(value);
     TEST_ASSERT_EQUAL(YYAML_INT, value->type);
     TEST_ASSERT_EQUAL(-123, value->val.integer);
@@ -140,20 +140,20 @@ void test_parse_simple_sequence(void) {
     TEST_ASSERT_NOT_NULL(root);
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     
-    const yyaml_node *items = yyaml_map_get(doc, root, "items");
+    const yyaml_node *items = yyaml_map_get(root, "items");
     TEST_ASSERT_NOT_NULL(items);
     TEST_ASSERT_EQUAL(YYAML_SEQUENCE, items->type);
     TEST_ASSERT_EQUAL(3, yyaml_seq_len(items));
 
-    const yyaml_node *item1 = yyaml_seq_get(doc, items, 0);
+    const yyaml_node *item1 = yyaml_seq_get(items, 0);
     TEST_ASSERT_NOT_NULL(item1);
     TEST_ASSERT_EQUAL(YYAML_STRING, item1->type);
     
-    const yyaml_node *item2 = yyaml_seq_get(doc, items, 1);
+    const yyaml_node *item2 = yyaml_seq_get(items, 1);
     TEST_ASSERT_NOT_NULL(item2);
     TEST_ASSERT_EQUAL(YYAML_STRING, item2->type);
     
-    const yyaml_node *item3 = yyaml_seq_get(doc, items, 2);
+    const yyaml_node *item3 = yyaml_seq_get(items, 2);
     TEST_ASSERT_NOT_NULL(item3);
     TEST_ASSERT_EQUAL(YYAML_INT, item3->type);
     TEST_ASSERT_EQUAL(42, item3->val.integer);
@@ -170,16 +170,16 @@ void test_parse_simple_mapping(void) {
     TEST_ASSERT_EQUAL(YYAML_MAPPING, root->type);
     TEST_ASSERT_EQUAL(3, yyaml_map_len(root));
     
-    const yyaml_node *value1 = yyaml_map_get(doc, root, "key1");
+    const yyaml_node *value1 = yyaml_map_get(root, "key1");
     TEST_ASSERT_NOT_NULL(value1);
     TEST_ASSERT_EQUAL(YYAML_STRING, value1->type);
     
-    const yyaml_node *value2 = yyaml_map_get(doc, root, "key2");
+    const yyaml_node *value2 = yyaml_map_get(root, "key2");
     TEST_ASSERT_NOT_NULL(value2);
     TEST_ASSERT_EQUAL(YYAML_INT, value2->type);
     TEST_ASSERT_EQUAL(123, value2->val.integer);
     
-    const yyaml_node *value3 = yyaml_map_get(doc, root, "key3");
+    const yyaml_node *value3 = yyaml_map_get(root, "key3");
     TEST_ASSERT_NOT_NULL(value3);
     TEST_ASSERT_EQUAL(YYAML_BOOL, value3->type);
     TEST_ASSERT_TRUE(value3->val.boolean);
@@ -213,7 +213,8 @@ void test_write_simple_values(void) {
     
     char *output = NULL;
     size_t output_len = 0;
-    bool result = yyaml_write(doc, &output, &output_len, NULL, &err);
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_NOT_NULL(output);
     TEST_ASSERT_EQUAL_STRING("42\n", output);
@@ -232,7 +233,8 @@ void test_write_sequence(void) {
     
     char *output = NULL;
     size_t output_len = 0;
-    bool result = yyaml_write(doc, &output, &output_len, NULL, &err);
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
     if (!result) {
         printf("ERROR: Failed to write sequence. Error: %s\n", err.msg);
     }
