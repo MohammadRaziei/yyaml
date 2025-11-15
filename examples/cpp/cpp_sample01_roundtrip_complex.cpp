@@ -44,14 +44,14 @@ bool compare_nodes(const yyaml::node &lhs, const yyaml::node &rhs, const std::st
         return false;
     }
 
-    if (lhs.isScalar()) {
-        const bool match = lhs.toString() == rhs.toString();
+    if (lhs.is_scalar()) {
+        const bool match = lhs.to_string() == rhs.to_string();
         std::cout << (match ? "[OK] " : "[FAIL] ") << path << " -> "
-                  << lhs.toString() << " == " << rhs.toString() << "\n";
+                  << lhs.to_string() << " == " << rhs.to_string() << "\n";
         return match;
     }
 
-    if (lhs.isSequence()) {
+    if (lhs.is_sequence()) {
         if (lhs.size() != rhs.size()) {
             std::cout << "[FAIL] " << path << " -> sequence size mismatch\n";
             return false;
@@ -63,13 +63,13 @@ bool compare_nodes(const yyaml::node &lhs, const yyaml::node &rhs, const std::st
         return ok;
     }
 
-    if (lhs.isMapping()) {
+    if (lhs.is_mapping()) {
         if (lhs.size() != rhs.size()) {
             std::cout << "[FAIL] " << path << " -> mapping size mismatch\n";
             return false;
         }
         bool ok = true;
-        lhs.forEachMember([&](const std::string &key, yyaml::node child) {
+        lhs.for_each_member([&](const std::string &key, yyaml::node child) {
             ok &= compare_nodes(child, rhs[key], path + "/" + key);
         });
         return ok;
@@ -92,7 +92,7 @@ int main() {
         std::cout << (ok ? "Roundtrip comparison succeeded" : "Roundtrip comparison failed")
                   << "\n";
         return ok ? 0 : 1;
-    } catch (const yyaml::error &err) {
+    } catch (const yyaml::yyaml_error &err) {
         std::cerr << "yyaml error: " << err.what() << "\n";
         return 1;
     }

@@ -5,6 +5,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace {
 
@@ -40,24 +43,24 @@ std::string node_to_json(const yyaml::node &node) {
     if (!node) {
         return "null";
     }
-    if (node.isNull()) {
+    if (node.is_null()) {
         return "null";
     }
-    if (node.isBool()) {
-        return node.asBool() ? "true" : "false";
+    if (node.is_bool()) {
+        return node.as_bool() ? "true" : "false";
     }
-    if (node.isInt()) {
-        return std::to_string(node.asInt());
+    if (node.is_int()) {
+        return std::to_string(node.as_int());
     }
-    if (node.isDouble()) {
+    if (node.is_double()) {
         std::ostringstream out;
-        out << node.asDouble();
+        out << node.as_double();
         return out.str();
     }
-    if (node.isString()) {
-        return escape_json(node.asString());
+    if (node.is_string()) {
+        return escape_json(node.as_string());
     }
-    if (node.isSequence()) {
+    if (node.is_sequence()) {
         std::string out = "[";
         for (std::size_t i = 0; i < node.size(); ++i) {
             if (i > 0) {
@@ -68,10 +71,10 @@ std::string node_to_json(const yyaml::node &node) {
         out += "]";
         return out;
     }
-    if (node.isMapping()) {
+    if (node.is_mapping()) {
         std::string out = "{";
         bool first = true;
-        node.forEachMember([&](const std::string &key, yyaml::node child) {
+        node.for_each_member([&](const std::string &key, yyaml::node child) {
             if (!first) {
                 out += ",";
             }
@@ -91,7 +94,7 @@ void dump_file_as_json(const std::string &path) {
         auto doc = yyaml::document::parse_file(path);
         std::cout << "=== " << path << " ===\n";
         std::cout << node_to_json(doc.root()) << "\n\n";
-    } catch (const yyaml::error &err) {
+    } catch (const yyaml::yyaml_error &err) {
         std::cerr << "Failed to load " << path << ": " << err.what() << "\n";
     }
 }
@@ -99,11 +102,11 @@ void dump_file_as_json(const std::string &path) {
 } // namespace
 
 int main() {
-    const std::string data_dir = YYAML_EXAMPLE_DATA_DIR;
+    const auto data_dir = fs::path(__FILE__).parent_path().parent_path() / "data";
     const std::vector<std::string> files = {"app_config.yaml", "inventory.yml"};
 
     for (const auto &file : files) {
-        dump_file_as_json(data_dir + "/" + file);
+        dump_file_as_json((data_dir / file).string());
     }
 
     return 0;

@@ -2,10 +2,10 @@ set(EXAMPLE_COMMON_SOURCES
     common.c
 )
 
-file(GLOB EXAMPLE_SAMPLE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/sample*.c")
-list(SORT EXAMPLE_SAMPLE_SOURCES)
+file(GLOB EXAMPLE_C_SAMPLE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/c_sample*.c")
+list(SORT EXAMPLE_C_SAMPLE_SOURCES)
 
-foreach(sample_source IN LISTS EXAMPLE_SAMPLE_SOURCES)
+foreach(sample_source IN LISTS EXAMPLE_C_SAMPLE_SOURCES)
     get_filename_component(sample_name "${sample_source}" NAME_WE)
 
     add_executable(${sample_name}

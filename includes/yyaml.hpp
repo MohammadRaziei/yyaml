@@ -35,10 +35,7 @@ struct yyaml_error : public std::runtime_error {
 class node {
 public:
     node() = default;
-    ~node() {
-        if (_node) delete _node;
-        if (_doc) delete _doc;
-    }
+    ~node() {}
 
     type get_type() const { return _node ? static_cast<type>(_node->type) : YYAML_NULL; }
 
@@ -53,7 +50,9 @@ public:
     bool is_string() const { return _node && _node->type == YYAML_STRING; }
     bool is_sequence() const { return _node && _node->type == YYAML_SEQUENCE; }
     bool is_mapping() const { return _node && _node->type == YYAML_MAPPING; }
+    
     bool is_scalar() const { return _node && yyaml_is_scalar(_node); }
+    bool is_container() const { return _node && yyaml_is_container(_node); }
 
     std::nullptr_t as_null() const;
     bool as_bool() const;
@@ -69,9 +68,7 @@ public:
     std::size_t size() const;
 
     template <typename Func>
-    void forEachMember(Func &&func) const;
-
-    const ::yyaml_node *raw() const { return _node; }
+    void for_each_member(Func &&func) const;
 
 private:
     const ::yyaml_doc *_doc = nullptr;
@@ -170,30 +167,30 @@ inline std::size_t node::size() const {
 }
 
 template <typename Func>
-inline void node::forEachMember(Func &&func) const {
+inline void node::for_each_member(Func &&func) const {
     require_bound();
     if (!is_mapping()) {
         throw yyaml_error("yyaml::node is not a mapping");
     }
 
-    const char *buf = yyaml_doc_get_scalar_buf(doc_);
+    const char *buf = yyaml_doc_get_scalar_buf(_doc);
     if (!buf) {
         throw yyaml_error("yyaml scalar buffer is null");
     }
     const auto none = std::numeric_limits<uint32_t>::max();
-    const ::yyaml_node *child = yyaml_doc_get(doc_, node_->child);
+    const ::yyaml_node *child = yyaml_doc_get(_doc, _node->child);
 
     while (child) {
         std::string key;
         key.assign(buf + static_cast<std::size_t>(child->extra),
                    static_cast<std::size_t>(child->flags));
 
-        func(key, node(doc_, child));
+        func(key, node(_doc, child));
 
         if (child->next == none) {
             break;
         }
-        child = yyaml_doc_get(doc_, child->next);
+        child = yyaml_doc_get(_doc, child->next);
     }
 }
 

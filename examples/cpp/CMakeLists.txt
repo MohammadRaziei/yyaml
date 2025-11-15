@@ -1,19 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 
-function(add_yyaml_cpp_example target)
-    add_executable(${target} ${ARGN})
-    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/includes)
-    target_link_libraries(${target} PRIVATE yyaml)
-    target_compile_features(${target} PRIVATE cxx_std_17)
-    target_compile_definitions(${target} PRIVATE
-        YYAML_EXAMPLE_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../data")
-endfunction()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_yyaml_cpp_example(yyaml_cpp_inspect
-    inspect_config.cpp)
+file(GLOB EXAMPLE_CPP_SAMPLE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cpp_sample*.cpp")
+list(SORT EXAMPLE_CPP_SAMPLE_SOURCES)
 
-add_yyaml_cpp_example(yyaml_cpp_roundtrip
-    roundtrip_complex.cpp)
+foreach(sample_source IN LISTS EXAMPLE_CPP_SAMPLE_SOURCES)
+    get_filename_component(sample_name "${sample_source}" NAME_WE)
 
-add_yyaml_cpp_example(yyaml_cpp_dump_json
-    dumps_as_json.cpp)
+    add_executable(${sample_name}
+        ${sample_source}
+        ${EXAMPLE_COMMON_SOURCES}
+    )
+    target_include_directories(${sample_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(${sample_name} PRIVATE yyaml)
+endforeach()

@@ -16,10 +16,10 @@ bool nodes_equal(const yyaml::node &lhs, const yyaml::node &rhs) {
     if (lhs.get_type() != rhs.get_type()) {
         return false;
     }
-    if (lhs.isScalar()) {
-        return lhs.toString() == rhs.toString();
+    if (lhs.is_scalar()) {
+        return lhs.to_string() == rhs.to_string();
     }
-    if (lhs.isSequence()) {
+    if (lhs.is_sequence()) {
         if (lhs.size() != rhs.size()) {
             return false;
         }
@@ -30,12 +30,12 @@ bool nodes_equal(const yyaml::node &lhs, const yyaml::node &rhs) {
         }
         return true;
     }
-    if (lhs.isMapping()) {
+    if (lhs.is_mapping()) {
         if (lhs.size() != rhs.size()) {
             return false;
         }
         bool ok = true;
-        lhs.forEachMember([&](const std::string &key, yyaml::node child) {
+        lhs.for_each_member([&](const std::string &key, yyaml::node child) {
             if (!nodes_equal(child, rhs[key])) {
                 ok = false;
             }
@@ -64,37 +64,37 @@ nested:
     auto doc = yyaml::document::parse(yaml);
     auto root = doc.root();
 
-    REQUIRE(root.isMapping());
+    REQUIRE(root.is_mapping());
     REQUIRE(root.size() == 6);
 
     auto name = root["name"];
-    CHECK(name.isString());
-    CHECK(name.asString() == "Example");
+    CHECK(name.is_string());
+    CHECK(name.as_string() == "Example");
 
     auto count = root["count"];
-    CHECK(count.isInt());
-    CHECK(count.asInt() == 42);
-    CHECK(count.isNumber());
-    CHECK(count.asNumber() == doctest::Approx(42));
+    CHECK(count.is_int());
+    CHECK(count.as_int() == 42);
+    CHECK(count.is_number());
+    CHECK(count.as_number() == doctest::Approx(42));
 
     auto price = root["price"];
-    CHECK(price.isDouble());
-    CHECK(price.asDouble() == doctest::Approx(13.37));
+    CHECK(price.is_double());
+    CHECK(price.as_double() == doctest::Approx(13.37));
 
     auto active = root["active"];
-    CHECK(active.isBool());
-    CHECK(active.toString() == "true");
+    CHECK(active.is_bool());
+    CHECK(active.to_string() == "true");
 
     auto items = root["items"];
-    REQUIRE(items.isSequence());
+    REQUIRE(items.is_sequence());
     CHECK(items.size() == 3);
-    CHECK(items.at(1).asString() == "second");
+    CHECK(items.at(1).as_string() == "second");
 
     auto nested = root["nested"];
-    REQUIRE(nested.isMapping());
-    CHECK(nested["inner"].asDouble() == doctest::Approx(2.5));
-    CHECK(nested["empty"].isNull());
-    CHECK_NOTHROW(nested["empty"].asNull());
+    REQUIRE(nested.is_mapping());
+    CHECK(nested["inner"].as_double() == doctest::Approx(2.5));
+    CHECK(nested["empty"].is_null());
+    CHECK_NOTHROW(nested["empty"].as_null());
 }
 
 TEST_CASE("document dump supports roundtrip serialization") {

@@ -8,7 +8,7 @@ option(BUILD_PYTHON "Build yyaml Python bindings" OFF)
 # Set C standard
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Create library target
@@ -62,7 +62,7 @@ if(${BUILD_PYTHON} OR DEFINED SKBUILD)
 
 
     # Transpile Cython to C
-    cython_transpile(${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx LANGUAGE C OUTPUT_VARIABLE yyaml_c_file)
+    cython_transpile(${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_c_file)
 
     # Create the Python extension module
     python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
