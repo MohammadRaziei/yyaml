@@ -272,9 +272,9 @@ inline std::string node::to_string() const {
     size_t len = 0;
     ::yyaml_err err = {0};
 
-    ::yyaml_write_opts opts;
-    opts.indent = 2; 
-    opts.final_newline = false;  
+    ::yyaml_write_opts opts{};
+    opts.indent = 2;
+    opts.final_newline = false;
 
     if (!yyaml_write(_node, &buffer, &len, &opts, &err)) {
         throw yyaml_error(err);

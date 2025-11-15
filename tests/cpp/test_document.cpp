@@ -83,7 +83,7 @@ nested:
 
     auto active = root["active"];
     CHECK(active.is_bool());
-    CHECK(active.to_string() == "true\n");
+    CHECK(active.to_string() == "true");
 
     auto items = root["items"];
     REQUIRE(items.is_sequence());
@@ -144,7 +144,7 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
     SUBCASE("scalar roundtrip") {
         auto flag = root["flag"];
         auto serialized = flag.to_string();
-        CHECK(serialized == "false\n");
+        CHECK(serialized == "false");
         auto roundtrip = yyaml::document::parse(serialized);
         CHECK(nodes_equal(flag, roundtrip.root()));
     }
@@ -161,7 +161,7 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
         auto list = root["list"];
         auto serialized = list.to_string();
         CAPTURE(serialized);
-        CHECK(serialized == "- a\n- b\n- c\n");
+        CHECK(serialized == "- a\n- b\n- c");
 
         auto indent = [](const std::string &src) {
             std::string out;
@@ -183,7 +183,10 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
 
     SUBCASE("root equivalence") {
         auto doc_root = doc.root();
-        CHECK(doc_root.to_string() == doc.dump());
+        yyaml::write_opts opts{};
+        opts.indent = 2;
+        opts.final_newline = false;
+        CHECK(doc_root.to_string() == doc.dump(&opts));
     }
 }
 
@@ -206,7 +209,7 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
     SUBCASE("scalar roundtrip") {
         auto flag = root["flag"];
         auto serialized = flag.to_string();
-        CHECK(serialized == "false\n");
+        CHECK(serialized == "false");
         auto roundtrip = yyaml::document::parse(serialized);
         CHECK(nodes_equal(flag, roundtrip.root()));
     }
@@ -223,7 +226,7 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
         auto list = root["list"];
         auto serialized = list.to_string();
         CAPTURE(serialized);
-        CHECK(serialized == "- a\n- b\n- c\n");
+        CHECK(serialized == "- a\n- b\n- c");
 
         auto indent = [](const std::string &src) {
             std::string out;
@@ -245,7 +248,10 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
 
     SUBCASE("root equivalence") {
         auto doc_root = doc.root();
-        CHECK(doc_root.to_string() == doc.dump());
+        yyaml::write_opts opts{};
+        opts.indent = 2;
+        opts.final_newline = false;
+        CHECK(doc_root.to_string() == doc.dump(&opts));
     }
 }
 

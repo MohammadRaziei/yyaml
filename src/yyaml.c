@@ -1079,6 +1079,22 @@ static bool yyaml_writer_write_double(yyaml_writer *wr, double val) {
     }
     len = snprintf(tmp, sizeof(tmp), "%.17g", val);
     if (len < 0) return false;
+
+    // bool has_decimal = false;
+    // for (int i = 0; i < len; ++i) {
+    //     char c = tmp[i];
+    //     if (c == '.' || c == 'e' || c == 'E') {
+    //         has_decimal = true;
+    //         break;
+    //     }
+    // }
+
+    // if (!has_decimal && len + 2 < (int)sizeof(tmp)) {
+    //     tmp[len++] = '.';
+    //     tmp[len++] = '0';
+    //     tmp[len] = '\0';
+    // }
+
     return yyaml_writer_write(wr, tmp, (size_t)len);
 }
 
@@ -1165,10 +1181,15 @@ static bool yyaml_write_node_internal(const yyaml_doc *doc,
                                       size_t depth, size_t indent,
                                       yyaml_writer *wr, yyaml_err *err);
 
+static bool yyaml_writer_write_mapping(const yyaml_doc *doc,
+                                       const yyaml_node *node, size_t depth,
+                                       size_t indent, yyaml_writer *wr,
+                                       yyaml_err *err, bool inline_first);
+
 static bool yyaml_writer_write_sequence(const yyaml_doc *doc,
                                         const yyaml_node *node, size_t depth,
                                         size_t indent, yyaml_writer *wr,
-                                        yyaml_err *err) {
+                                        yyaml_err *err, bool inline_first) {
     uint32_t idx;
     bool first = true;
     if (!node || node->type != YYAML_SEQUENCE) return false;
@@ -1181,14 +1202,19 @@ static bool yyaml_writer_write_sequence(const yyaml_doc *doc,
         if (!first) {
             if (!yyaml_writer_putc(wr, '\n')) return false;
         }
-        if (!yyaml_writer_indent(wr, indent, depth)) return false;
-        if (child->type == YYAML_SEQUENCE || child->type == YYAML_MAPPING) {
-            if (!yyaml_writer_write(wr, "-\n", 2)) return false;
-            if (!yyaml_write_node_internal(doc, child, depth + 1, indent, wr,
-                                           err))
+        if (!(inline_first && first)) {
+            if (!yyaml_writer_indent(wr, indent, depth)) return false;
+        }
+        if (!yyaml_writer_write(wr, "- ", 2)) return false;
+        if (child->type == YYAML_SEQUENCE) {
+            if (!yyaml_writer_write_sequence(doc, child, depth + 1, indent, wr,
+                                             err, true))
+                return false;
+        } else if (child->type == YYAML_MAPPING) {
+            if (!yyaml_writer_write_mapping(doc, child, depth + 1, indent, wr,
+                                            err, true))
                 return false;
         } else {
-            if (!yyaml_writer_write(wr, "- ", 2)) return false;
             if (!yyaml_write_node_internal(doc, child, depth + 1, indent, wr,
                                            err))
                 return false;
@@ -1202,7 +1228,7 @@ static bool yyaml_writer_write_sequence(const yyaml_doc *doc,
 static bool yyaml_writer_write_mapping(const yyaml_doc *doc,
                                        const yyaml_node *node, size_t depth,
                                        size_t indent, yyaml_writer *wr,
-                                       yyaml_err *err) {
+                                       yyaml_err *err, bool inline_first) {
     uint32_t idx;
     bool first = true;
     if (!node || node->type != YYAML_MAPPING) return false;
@@ -1215,7 +1241,9 @@ static bool yyaml_writer_write_mapping(const yyaml_doc *doc,
         if (!first) {
             if (!yyaml_writer_putc(wr, '\n')) return false;
         }
-        if (!yyaml_writer_indent(wr, indent, depth)) return false;
+        if (!(inline_first && first)) {
+            if (!yyaml_writer_indent(wr, indent, depth)) return false;
+        }
         if (!yyaml_writer_write_key(doc, child, wr)) return false;
         if (child->type == YYAML_SEQUENCE || child->type == YYAML_MAPPING) {
             if (!yyaml_writer_write(wr, ":\n", 2)) return false;
@@ -1253,9 +1281,11 @@ static bool yyaml_write_node_internal(const yyaml_doc *doc,
     case YYAML_STRING:
         return yyaml_writer_write_string_node(doc, node, wr);
     case YYAML_SEQUENCE:
-        return yyaml_writer_write_sequence(doc, node, depth, indent, wr, err);
+        return yyaml_writer_write_sequence(doc, node, depth, indent, wr, err,
+                                           false);
     case YYAML_MAPPING:
-        return yyaml_writer_write_mapping(doc, node, depth, indent, wr, err);
+        return yyaml_writer_write_mapping(doc, node, depth, indent, wr, err,
+                                          false);
     default:
         return false;
     }

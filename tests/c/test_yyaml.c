@@ -249,6 +249,48 @@ void test_write_sequence(void) {
     yyaml_free_string(output);
 }
 
+void test_write_preserves_decimal_suffix(void) {
+    const char *yaml = "value: 1.0";
+    doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
+    TEST_ASSERT_NOT_NULL(doc);
+
+    char *output = NULL;
+    size_t output_len = 0;
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_NOT_NULL(output);
+    TEST_ASSERT_NOT_NULL_MESSAGE(strstr(output, "1.0"), output);
+
+    yyaml_free_string(output);
+}
+
+void test_write_sequence_of_maps_inlines_keys(void) {
+    const char *yaml =
+        "items:\n"
+        "  - id: 1001\n"
+        "    name: Hammer\n"
+        "  - id: 1002\n"
+        "    name: Nails\n";
+
+    doc = yyaml_read(yaml, strlen(yaml), NULL, &err);
+    TEST_ASSERT_NOT_NULL(doc);
+
+    char *output = NULL;
+    size_t output_len = 0;
+    const yyaml_node *root = yyaml_doc_get_root(doc);
+    bool result = yyaml_write(root, &output, &output_len, NULL, &err);
+    TEST_ASSERT_TRUE(result);
+    TEST_ASSERT_NOT_NULL(output);
+
+    TEST_ASSERT_NOT_NULL(strstr(output, "- id: 1001"));
+    TEST_ASSERT_NULL(strstr(output, "-\n    id: 1001"));
+    TEST_ASSERT_NOT_NULL(strstr(output, "- id: 1002"));
+    TEST_ASSERT_NULL(strstr(output, "-\n    id: 1002"));
+
+    yyaml_free_string(output);
+}
+
 // Test utility functions
 void test_is_scalar(void) {
     const char *yaml = "test";
@@ -327,6 +369,8 @@ int main(void) {
     RUN_TEST(test_parse_empty_string);
     RUN_TEST(test_write_simple_values);
     RUN_TEST(test_write_sequence);
+    RUN_TEST(test_write_sequence_of_maps_inlines_keys);
+    RUN_TEST(test_write_preserves_decimal_suffix);
     RUN_TEST(test_is_scalar);
     RUN_TEST(test_is_container);
     RUN_TEST(test_str_eq);
