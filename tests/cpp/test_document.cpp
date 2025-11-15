@@ -186,3 +186,96 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
         CHECK(doc_root.to_string() == doc.dump());
     }
 }
+
+
+TEST_CASE("node to_string emits YAML for scalars and subtrees") {
+    const char *yaml = R"(root:
+  nested:
+    value: 99
+    empty: null
+  list:
+    - a
+    - b
+    - c
+  flag: false
+)";
+
+    auto doc = yyaml::document::parse(yaml);
+    auto root = doc.root()["root"];
+
+    SUBCASE("scalar roundtrip") {
+        auto flag = root["flag"];
+        auto serialized = flag.to_string();
+        CHECK(serialized == "false\n");
+        auto roundtrip = yyaml::document::parse(serialized);
+        CHECK(nodes_equal(flag, roundtrip.root()));
+    }
+
+    SUBCASE("mapping roundtrip") {
+        auto nested = root["nested"];
+        auto serialized = nested.to_string();
+        CAPTURE(serialized);
+        auto parsed = yyaml::document::parse(serialized);
+        CHECK(nodes_equal(nested, parsed.root()));
+    }
+
+    SUBCASE("sequence roundtrip") {
+        auto list = root["list"];
+        auto serialized = list.to_string();
+        CAPTURE(serialized);
+        CHECK(serialized == "- a\n- b\n- c\n");
+
+        auto indent = [](const std::string &src) {
+            std::string out;
+            out.reserve(src.size() * 2 + 2);
+            out.append("  ");
+            for (std::size_t i = 0; i < src.size(); ++i) {
+                out.push_back(src[i]);
+                if (src[i] == '\n' && i + 1 < src.size()) {
+                    out.append("  ");
+                }
+            }
+            return out;
+        };
+
+        auto wrapped_yaml = std::string("wrapper:\n") + indent(serialized);
+        auto parsed = yyaml::document::parse(wrapped_yaml);
+        CHECK(nodes_equal(list, parsed.root()["wrapper"]));
+    }
+
+    SUBCASE("root equivalence") {
+        auto doc_root = doc.root();
+        CHECK(doc_root.to_string() == doc.dump());
+    }
+}
+
+TEST_CASE("node empty reflects structure and scalar content") {
+    yyaml::node unbound;
+    CHECK(unbound.empty());
+
+    const char *yaml = R"(empty_seq: []
+filled_map:
+  key: value
+filled_seq:
+  - one
+blank: ""
+text: hello
+nullish: null
+flag: false
+)";
+
+    auto doc = yyaml::document::parse(yaml);
+    auto root = doc.root();
+
+    CHECK_FALSE(root.empty());
+    CHECK(root["missing"].empty());
+    REQUIRE(root["empty_seq"].is_sequence());
+    CHECK(root["empty_seq"].empty());
+    CHECK_FALSE(root["filled_map"].empty());
+    CHECK_FALSE(root["filled_seq"].empty());
+    CHECK(root["blank"].empty());
+    CHECK_FALSE(root["text"].empty());
+    CHECK(root["nullish"].empty());
+    CHECK_FALSE(root["flag"].empty());
+}
+

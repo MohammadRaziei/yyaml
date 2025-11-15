@@ -68,6 +68,7 @@ public:
     node operator[](std::size_t index) const;
 
     std::size_t size() const;
+    bool empty() const;
 
     template <typename Func>
     void for_each_member(Func &&func) const;
@@ -170,6 +171,24 @@ inline std::size_t node::size() const {
     return 0;
 }
 
+inline bool node::empty() const {
+    if (!_node) {
+        return true;
+    }
+    switch (_node->type) {
+    case YYAML_NULL:
+        return true;
+    case YYAML_SEQUENCE:
+        return yyaml_seq_len(_node) == 0;
+    case YYAML_MAPPING:
+        return yyaml_map_len(_node) == 0;
+    case YYAML_STRING:
+        return _node->val.str.len == 0;
+    default:
+        return false;
+    }
+}
+
 template <typename Func>
 inline void node::for_each_member(Func &&func) const {
     require_bound();
@@ -253,7 +272,11 @@ inline std::string node::to_string() const {
     size_t len = 0;
     ::yyaml_err err = {0};
 
-    if (!yyaml_write(_node, &buffer, &len, nullptr, &err)) {
+    ::yyaml_write_opts opts;
+    opts.indent = 2; 
+    opts.final_newline = false;  
+
+    if (!yyaml_write(_node, &buffer, &len, &opts, &err)) {
         throw yyaml_error(err);
     }
 
