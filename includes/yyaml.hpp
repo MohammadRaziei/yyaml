@@ -62,8 +62,10 @@ public:
     std::string as_string() const;
     std::string to_string() const;
 
-    node operator[](const std::string &key) const;
+    node at(const std::string &key) const;
     node at(std::size_t index) const;
+    node operator[](const std::string &key) const;
+    node operator[](std::size_t index) const;
 
     std::size_t size() const;
 
@@ -124,22 +126,17 @@ public:
         return node(_doc, yyaml_doc_get_root(_doc));
     }
 
-
     bool valid() const { return static_cast<bool>(_doc); }
-
     std::string dump(const write_opts *opts = nullptr) const;
 
 private:
-
-
-    ::yyaml_doc* _doc {nullptr};
-
+    ::yyaml_doc* _doc = nullptr;
     friend class node;
 };
 
-inline node node::operator[](const std::string &key) const {
+inline node node::at(const std::string &key) const {
     if (!_doc || !_node || !is_mapping()) {
-        return {};
+        throw yyaml_error("only work at mapping type");
     }
     const ::yyaml_node *child = yyaml_map_get(_doc, _node, key.c_str());
     return node(_doc, child);
@@ -147,10 +144,18 @@ inline node node::operator[](const std::string &key) const {
 
 inline node node::at(std::size_t index) const {
     if (!_doc || !_node || !is_sequence()) {
-        return {};
+        throw yyaml_error("only work at sequence type");
     }
     const ::yyaml_node *child = yyaml_seq_get(_doc, _node, index);
     return node(_doc, child);
+}
+
+inline node node::operator[](const std::string &key) const {
+    return at(key);
+}
+
+inline node node::operator[](std::size_t index) const {
+    return at(index);
 }
 
 inline std::size_t node::size() const {
