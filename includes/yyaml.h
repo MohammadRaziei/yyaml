@@ -64,6 +64,8 @@ typedef enum yyaml_type {
     YYAML_MAPPING
 } yyaml_type;
 
+typedef struct yyaml_doc yyaml_doc;
+
 typedef struct yyaml_node {
     uint32_t type;        /* yyaml_type */
     uint32_t flags;       /* reserved for future use */
@@ -82,7 +84,6 @@ typedef struct yyaml_node {
     } val;
 } yyaml_node;
 
-typedef struct yyaml_doc yyaml_doc;
 
 typedef struct yyaml_read_opts {
     bool allow_duplicate_keys;   /* keep last value when duplicates appear */
@@ -159,6 +160,7 @@ YYAML_API size_t yyaml_map_len(const yyaml_node *map);
 
 YYAML_API bool yyaml_write(const yyaml_doc *doc, char **out, size_t *out_len,
                            const yyaml_write_opts *opts, yyaml_err *err);
+
 
 YYAML_API void yyaml_free_string(char *str);
 

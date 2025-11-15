@@ -89,9 +89,7 @@ class document {
 public:
     document() = default;
     ~document() {
-        if (_doc) {
-            yyaml_doc_free(_doc);
-        }
+        yyaml_doc_free(_doc);
     }
     explicit document(::yyaml_doc *doc) : _doc(doc) {}
 
@@ -136,7 +134,7 @@ private:
 
 inline node node::at(const std::string &key) const {
     if (!_doc || !_node || !is_mapping()) {
-        throw yyaml_error("only work at mapping type");
+        throw yyaml_error("yyaml::node only work at mapping type");
     }
     const ::yyaml_node *child = yyaml_map_get(_doc, _node, key.c_str());
     return node(_doc, child);
@@ -144,7 +142,7 @@ inline node node::at(const std::string &key) const {
 
 inline node node::at(std::size_t index) const {
     if (!_doc || !_node || !is_sequence()) {
-        throw yyaml_error("only work at sequence type");
+        throw yyaml_error("yyaml::node only work at sequence type");
     }
     const ::yyaml_node *child = yyaml_seq_get(_doc, _node, index);
     return node(_doc, child);
