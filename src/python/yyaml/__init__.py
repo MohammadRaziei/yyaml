@@ -1,8 +1,5 @@
 """Python convenience layer for the yyaml extension module."""
 
-try:  # pragma: no cover - executed during runtime import
-    from .yyaml_python import hello  # type: ignore[attr-defined]
-except ImportError as exc:  # pragma: no cover
-    raise ImportError("yyaml extension module is not built") from exc
+from .yyaml_python import Document, Node, NodeIterator, dump, dumps, load, loads
 
-__all__ = ["hello"]
+__all__ = ["Document", "Node", "NodeIterator", "dump", "dumps", "load", "loads"]
