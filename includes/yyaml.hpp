@@ -83,6 +83,8 @@ public:
     double as_number() const;
     std::string as_string() const;
     std::string to_string() const;
+    /** @return Index of the node within its owning document. */
+    uint32_t index() const;
     ///@}
 
     /** @name Child access */
@@ -191,8 +193,15 @@ public:
     }
     explicit document(::yyaml_doc *doc) : _doc(doc) {}
 
-    document(document &&) noexcept = default;
-    document &operator=(document &&) noexcept = default;
+    document(document &&other) noexcept : _doc(other._doc) { other._doc = nullptr; }
+    document &operator=(document &&other) noexcept {
+        if (this != &other) {
+            yyaml_doc_free(_doc);
+            _doc = other._doc;
+            other._doc = nullptr;
+        }
+        return *this;
+    }
 
     document(const document &) = delete;
     document &operator=(const document &) = delete;
@@ -209,6 +218,20 @@ public:
         ::yyaml_doc *doc = yyaml_read(yaml.data(), yaml.size(), opts, &err);
         if (!doc) {
             throw yyaml_error(err);
+        }
+        return document(doc);
+    }
+
+    /**
+     * @brief Allocate an empty document for manual construction.
+     *
+     * Caller is responsible for using the builder helpers to populate nodes
+     * and assign a root.
+     */
+    static document create() {
+        ::yyaml_doc *doc = yyaml_doc_new();
+        if (!doc) {
+            throw yyaml_error("failed to allocate yyaml document");
         }
         return document(doc);
     }
@@ -237,6 +260,20 @@ public:
         return node(yyaml_doc_get_root(_doc));
     }
 
+    /** @name Builder helpers */
+    ///@{
+    node add_null();
+    node add_bool(bool value);
+    node add_int(std::int64_t value);
+    node add_double(double value);
+    node add_string(const std::string &value);
+    node add_sequence();
+    node add_mapping();
+    void set_root(const node &root);
+    void seq_append(const node &seq, const node &child);
+    void map_append(const node &map, const std::string &key, const node &value);
+    ///@}
+
     /** @return Whether the underlying document pointer is initialized. */
     bool valid() const { return static_cast<bool>(_doc); }
     /** Serialize the document to YAML text. */
@@ -245,6 +282,10 @@ public:
 private:
     ::yyaml_doc* _doc = nullptr;
     friend class node;
+
+    void require_doc() const;
+    node node_from_index(uint32_t idx) const;
+    uint32_t index_of(const node &n) const;
 };
 
 inline node node::at(const std::string &key) const {
@@ -444,6 +485,133 @@ inline std::string node::to_string() const {
     std::string out(buffer, len);
     yyaml_free_string(buffer);
     return out;
+}
+
+inline uint32_t node::index() const {
+    require_bound();
+    const uint32_t idx = yyaml_node_index(_node->doc, _node);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("yyaml::node index lookup failed");
+    }
+    return idx;
+}
+
+inline void document::require_doc() const {
+    if (!_doc) {
+        throw yyaml_error("yyaml::document is not initialized");
+    }
+}
+
+inline node document::node_from_index(uint32_t idx) const {
+    require_doc();
+    const ::yyaml_node *raw = yyaml_doc_get(_doc, idx);
+    if (!raw) {
+        throw yyaml_error("invalid yyaml node index");
+    }
+    return node(raw);
+}
+
+inline uint32_t document::index_of(const node &n) const {
+    if (!n._node || n._node->doc != _doc) {
+        throw yyaml_error("yyaml::node belongs to a different document");
+    }
+    const uint32_t idx = yyaml_node_index(_doc, n._node);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("yyaml::node index lookup failed");
+    }
+    return idx;
+}
+
+inline node document::add_null() {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_null(_doc);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate null node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_bool(bool value) {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_bool(_doc, value);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate bool node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_int(std::int64_t value) {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_int(_doc, value);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate int node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_double(double value) {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_double(_doc, value);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate double node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_string(const std::string &value) {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_string(_doc, value.data(), value.size());
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate string node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_sequence() {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_sequence(_doc);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate sequence node");
+    }
+    return node_from_index(idx);
+}
+
+inline node document::add_mapping() {
+    require_doc();
+    const uint32_t idx = yyaml_doc_add_mapping(_doc);
+    if (idx == std::numeric_limits<uint32_t>::max()) {
+        throw yyaml_error("failed to allocate mapping node");
+    }
+    return node_from_index(idx);
+}
+
+inline void document::set_root(const node &root) {
+    const uint32_t idx = index_of(root);
+    if (!yyaml_doc_set_root(_doc, idx)) {
+        throw yyaml_error("failed to set document root");
+    }
+}
+
+inline void document::seq_append(const node &seq, const node &child) {
+    if (!seq.is_sequence()) {
+        throw yyaml_error("yyaml::node is not a sequence");
+    }
+    const uint32_t seq_idx = index_of(seq);
+    const uint32_t child_idx = index_of(child);
+    if (!yyaml_doc_seq_append(_doc, seq_idx, child_idx)) {
+        throw yyaml_error("failed to append child to sequence");
+    }
+}
+
+inline void document::map_append(const node &map, const std::string &key, const node &value) {
+    if (!map.is_mapping()) {
+        throw yyaml_error("yyaml::node is not a mapping");
+    }
+    const uint32_t map_idx = index_of(map);
+    const uint32_t val_idx = index_of(value);
+    if (!yyaml_doc_map_append(_doc, map_idx, key.data(), key.size(), val_idx)) {
+        throw yyaml_error("failed to append mapping entry");
+    }
 }
 
 inline void node::require_bound() const {
