@@ -41,7 +41,7 @@ test = [
 
 
 [tool.scikit-build]
-build-dir = "build"
+# build-dir = "build"
 build.verbose = true
 
 
