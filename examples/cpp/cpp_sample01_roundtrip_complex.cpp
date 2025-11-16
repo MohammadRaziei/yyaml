@@ -69,7 +69,7 @@ bool compare_nodes(const yyaml::node &lhs, const yyaml::node &rhs, const std::st
             return false;
         }
         bool ok = true;
-        lhs.for_each_member([&](const std::string &key, yyaml::node child) {
+        lhs.foreach([&](const std::string &key, yyaml::node child) {
             ok &= compare_nodes(child, rhs[key], path + "/" + key);
         });
         return ok;

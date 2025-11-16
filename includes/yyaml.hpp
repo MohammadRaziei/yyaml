@@ -14,12 +14,23 @@
 
 namespace yyaml {
 
+/** Alias to the C yyaml node type enumeration. */
 using type = ::yyaml_type;
+/** Alias to the C yyaml read options structure. */
 using read_opts = ::yyaml_read_opts;
+/** Alias to the C yyaml write options structure. */
 using write_opts = ::yyaml_write_opts;
 
 class document;
+class node_iterator;
+class const_node_iterator;
 
+/**
+ * @brief Exception type thrown by the C++ yyaml wrapper.
+ *
+ * Captures position, line, and column when raised from the underlying C API so
+ * callers can report detailed parsing or serialization errors.
+ */
 struct yyaml_error : public std::runtime_error {
     std::size_t pos = 0;
     std::size_t line = 0;
@@ -32,13 +43,22 @@ struct yyaml_error : public std::runtime_error {
         : std::runtime_error(err.msg), pos(err.pos), line(err.line), column(err.column) {}
 };
 
+/**
+ * @brief Lightweight view over a YAML node owned by a yyaml::document.
+ *
+ * Instances are cheap to copy and behave like non-owning references to nodes
+ * stored in the document tree. Operations that read or traverse nodes validate
+ * their type and throw yyaml_error when misused.
+ */
 class node {
 public:
     node() = default;
     ~node() {}
 
+    /** @return The node type or YYAML_NULL if unbound. */
     type get_type() const { return _node ? static_cast<type>(_node->type) : YYAML_NULL; }
 
+    /** @return True when the node points to data inside a document. */
     bool is_valid() const { return _node != nullptr; }
     explicit operator bool() const { return is_valid(); }
 
@@ -50,10 +70,12 @@ public:
     bool is_string() const { return _node && _node->type == YYAML_STRING; }
     bool is_sequence() const { return _node && _node->type == YYAML_SEQUENCE; }
     bool is_mapping() const { return _node && _node->type == YYAML_MAPPING; }
-    
+
     bool is_scalar() const { return _node && yyaml_is_scalar(_node); }
     bool is_container() const { return _node && yyaml_is_container(_node); }
 
+    /** @name Conversions */
+    ///@{
     std::nullptr_t as_null() const;
     bool as_bool() const;
     std::int64_t as_int() const;
@@ -61,17 +83,34 @@ public:
     double as_number() const;
     std::string as_string() const;
     std::string to_string() const;
+    ///@}
 
+    /** @name Child access */
+    ///@{
     node at(const std::string &key) const;
     node at(std::size_t index) const;
     node operator[](const std::string &key) const;
     node operator[](std::size_t index) const;
+    ///@}
 
+    /** @return Number of children for sequences/maps or zero otherwise. */
     std::size_t size() const;
+    /** @return True when the node is empty or unbound. */
     bool empty() const;
 
+    /**
+     * @brief Iterate mapping entries without allocating intermediate pairs.
+     *
+     * The provided callback receives `(std::string key, node value)` for each
+     * member in insertion order. Throws if the node is not a mapping.
+     */
     template <typename Func>
-    void for_each_member(Func &&func) const;
+    void foreach(Func &&func) const;
+
+    /** @return A forward iterator over child nodes. */
+    node_iterator iter();
+    /** @return A forward iterator over child nodes for const contexts. */
+    const_node_iterator iter() const;
 
 private:
     const ::yyaml_node *_node = nullptr;
@@ -79,12 +118,71 @@ private:
     explicit node(const ::yyaml_node *node) : _node(node) {}
 
     friend class document;
+    friend class node_iterator;
+    friend class const_node_iterator;
 
     void require_bound() const;
     void require_scalar() const;
     std::string read_string() const;
 };
 
+/**
+ * @brief Forward-only iterator over the children of a yyaml::node.
+ *
+ * The iterator yields `node*` values; it returns `nullptr` after the final
+ * child, making it convenient for pointer-based loops:
+ *
+ * @code
+ * for (auto it = parent.iter(); node *child = it.next(); ) {
+ *     // use child
+ * }
+ * @endcode
+ */
+class node_iterator {
+public:
+    node_iterator() = default;
+    explicit node_iterator(const node &parent);
+
+    /** @return Pointer to the next child node or nullptr after the last. */
+    node *next();
+
+private:
+    static constexpr uint32_t none = std::numeric_limits<uint32_t>::max();
+
+    const ::yyaml_doc *_doc = nullptr;
+    uint32_t _next_idx = none;
+    node _current;
+};
+
+/**
+ * @brief Const-qualified variant of node_iterator.
+ *
+ * Returned from `const node::iter()` to allow traversal from const contexts
+ * while still yielding `const node*` pointers.
+ */
+class const_node_iterator {
+public:
+    const_node_iterator() = default;
+    explicit const_node_iterator(const node &parent);
+
+    /** @return Pointer to the next child node or nullptr after the last. */
+    const node *next();
+
+private:
+    static constexpr uint32_t none = std::numeric_limits<uint32_t>::max();
+
+    const ::yyaml_doc *_doc = nullptr;
+    uint32_t _next_idx = none;
+    node _current;
+};
+
+/**
+ * @brief Owning handle for a parsed YAML document.
+ *
+ * Use parse() or parse_file() to construct, then access the root node via
+ * root(). Documents are movable but not copyable, mirroring ownership of the
+ * underlying yyaml_doc.
+ */
 class document {
 public:
     document() = default;
@@ -99,6 +197,13 @@ public:
     document(const document &) = delete;
     document &operator=(const document &) = delete;
 
+    /**
+     * @brief Parse YAML from memory.
+     *
+     * @param yaml UTF-8 YAML text.
+     * @param opts Optional parser configuration.
+     * @throws yyaml_error on failure with position information populated.
+     */
     static document parse(std::string_view yaml, const read_opts *opts = nullptr) {
         ::yyaml_err err = {0};
         ::yyaml_doc *doc = yyaml_read(yaml.data(), yaml.size(), opts, &err);
@@ -108,6 +213,13 @@ public:
         return document(doc);
     }
 
+    /**
+     * @brief Parse a YAML document from disk.
+     *
+     * @param path Path to the YAML file.
+     * @param opts Optional parser configuration.
+     * @throws yyaml_error if the file cannot be opened or parsing fails.
+     */
     static document parse_file(const std::string &path, const read_opts *opts = nullptr) {
         std::ifstream input(path, std::ios::binary);
         if (!input) {
@@ -117,6 +229,7 @@ public:
         return parse(data, opts);
     }
 
+    /** @return The root node or an invalid node when the document is empty. */
     node root() const {
         if (!_doc) {
             return {};
@@ -124,7 +237,9 @@ public:
         return node(yyaml_doc_get_root(_doc));
     }
 
+    /** @return Whether the underlying document pointer is initialized. */
     bool valid() const { return static_cast<bool>(_doc); }
+    /** Serialize the document to YAML text. */
     std::string dump(const write_opts *opts = nullptr) const;
 
 private:
@@ -190,7 +305,7 @@ inline bool node::empty() const {
 }
 
 template <typename Func>
-inline void node::for_each_member(Func &&func) const {
+inline void node::foreach(Func &&func) const {
     require_bound();
     if (!is_mapping()) {
         throw yyaml_error("yyaml::node is not a mapping");
@@ -216,6 +331,52 @@ inline void node::for_each_member(Func &&func) const {
         }
         child = yyaml_doc_get(doc, child->next);
     }
+}
+
+inline node_iterator node::iter() {
+    return node_iterator(*this);
+}
+
+inline const_node_iterator node::iter() const {
+    return const_node_iterator(*this);
+}
+
+inline node_iterator::node_iterator(const node &parent) {
+    if (!parent._node || !yyaml_is_container(parent._node)) {
+        return;
+    }
+    _doc = parent._node->doc;
+    _next_idx = parent._node->child;
+}
+
+inline node *node_iterator::next() {
+    if (!_doc || _next_idx == none) {
+        return nullptr;
+    }
+
+    const ::yyaml_node *raw = yyaml_doc_get(_doc, _next_idx);
+    _current = node(raw);
+    _next_idx = raw->next == none ? none : raw->next;
+    return &_current;
+}
+
+inline const_node_iterator::const_node_iterator(const node &parent) {
+    if (!parent._node || !yyaml_is_container(parent._node)) {
+        return;
+    }
+    _doc = parent._node->doc;
+    _next_idx = parent._node->child;
+}
+
+inline const node *const_node_iterator::next() {
+    if (!_doc || _next_idx == none) {
+        return nullptr;
+    }
+
+    const ::yyaml_node *raw = yyaml_doc_get(_doc, _next_idx);
+    _current = node(raw);
+    _next_idx = raw->next == none ? none : raw->next;
+    return &_current;
 }
 
 inline std::nullptr_t node::as_null() const {

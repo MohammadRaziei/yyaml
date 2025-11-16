@@ -35,7 +35,7 @@ bool nodes_equal(const yyaml::node &lhs, const yyaml::node &rhs) {
             return false;
         }
         bool ok = true;
-        lhs.for_each_member([&](const std::string &key, yyaml::node child) {
+        lhs.foreach([&](const std::string &key, yyaml::node child) {
             if (!nodes_equal(child, rhs[key])) {
                 ok = false;
             }
@@ -283,5 +283,69 @@ flag: false
     CHECK_FALSE(root["text"].empty());
     CHECK(root["nullish"].empty());
     CHECK_FALSE(root["flag"].empty());
+}
+
+TEST_CASE("node iterator walks children forward") {
+    const char *yaml = R"(items:
+  - zero
+  - one
+  - two
+mapping:
+  first: 1
+  second: 2
+)";
+
+    auto doc = yyaml::document::parse(yaml);
+    auto root = doc.root();
+
+    SUBCASE("sequence iteration") {
+        auto iter = root["items"].iter();
+        auto first = iter.next();
+        REQUIRE(first);
+        CHECK(first->as_string() == "zero");
+
+        auto second = iter.next();
+        REQUIRE(second);
+        CHECK(second->as_string() == "one");
+
+        auto third = iter.next();
+        REQUIRE(third);
+        CHECK(third->as_string() == "two");
+
+        CHECK(iter.next() == nullptr);
+    }
+
+    SUBCASE("mapping iteration yields values") {
+        auto iter = root["mapping"].iter();
+
+        auto first = iter.next();
+        REQUIRE(first);
+        CHECK(first->as_int() == 1);
+
+        auto second = iter.next();
+        REQUIRE(second);
+        CHECK(second->as_int() == 2);
+
+        CHECK(iter.next() == nullptr);
+    }
+
+    SUBCASE("const iteration uses const_node_iterator") {
+        const yyaml::node const_items = root["items"];
+        auto iter = const_items.iter();
+
+        const yyaml::node *first = iter.next();
+        REQUIRE(first);
+        CHECK(first->as_string() == "zero");
+
+        const yyaml::node *second = iter.next();
+        REQUIRE(second);
+        CHECK(second->as_string() == "one");
+
+        const yyaml::node *third = iter.next();
+        REQUIRE(third);
+        CHECK(third->as_string() == "two");
+
+        CHECK(iter.next() == nullptr);
+    }
 }
 

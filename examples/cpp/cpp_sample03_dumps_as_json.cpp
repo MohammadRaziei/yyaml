@@ -65,7 +65,7 @@ std::string node_to_json(const yyaml::node& node, int depth) {
         }
         std::string out = "{\n";
         bool first = true;
-        node.for_each_member([&](const std::string& key, yyaml::node val) {
+        node.foreach([&](const std::string& key, yyaml::node val) {
             if (!first) {
                 out += ",\n";
             }
