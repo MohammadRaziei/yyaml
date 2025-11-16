@@ -349,3 +349,34 @@ mapping:
     }
 }
 
+TEST_CASE("document builder constructs nested structures") {
+    auto doc = yyaml::document::create();
+
+    auto root = doc.add_mapping();
+    doc.set_root(root);
+
+    doc.map_append(root, "title", doc.add_string("builder-demo"));
+    doc.map_append(root, "count", doc.add_int(7));
+    doc.map_append(root, "active", doc.add_bool(true));
+
+    auto tags = doc.add_sequence();
+    doc.seq_append(tags, doc.add_string("alpha"));
+    doc.seq_append(tags, doc.add_string("beta"));
+    doc.map_append(root, "tags", tags);
+
+    auto meta = doc.add_mapping();
+    doc.map_append(meta, "version", doc.add_double(1.5));
+    doc.map_append(meta, "notes", doc.add_null());
+    doc.map_append(root, "meta", meta);
+
+    auto roundtrip = yyaml::document::parse(doc.dump());
+    CHECK(nodes_equal(doc.root(), roundtrip.root()));
+
+    auto built_root = doc.root();
+    CHECK(built_root["title"].as_string() == "builder-demo");
+    CHECK(built_root["count"].as_int() == 7);
+    CHECK(built_root["active"].as_bool());
+    CHECK(built_root["tags"].size() == 2);
+    CHECK(built_root["meta"].is_mapping());
+}
+
