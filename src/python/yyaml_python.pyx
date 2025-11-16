@@ -389,7 +389,7 @@ cdef class Document:
         if opts is not None:
             c_opts.allow_duplicate_keys = bool(opts.get("allow_duplicate_keys", False))
             c_opts.allow_trailing_content = bool(opts.get("allow_trailing_content", False))
-            c_opts.allow_inf_nan = bool(opts.get("allow_inf_nan", False))
+            c_opts.allow_inf_nan = bool(opts.get("allow_inf_nan", True))
             c_opts.max_nesting = <size_t>opts.get("max_nesting", 0)
             opts_ptr = &c_opts
 
