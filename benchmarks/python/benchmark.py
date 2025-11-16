@@ -5,6 +5,7 @@ import string
 from io import StringIO
 from tqdm import tqdm
 
+import yyaml              # OURS
 import yaml               # PyYAML
 import ruamel.yaml        # ruamel.yaml
 import ruyaml             # ruyaml
@@ -87,6 +88,13 @@ for size_name, num_items in SIZES.items():
     print(f"\n=== Running benchmarks for data size: {size_name} ({num_items} items) ===")
     sample_dict = random_dict(num_items)
     sample_yaml = yaml_text_from_dict(sample_dict)
+
+    results.append(("yyaml", size_name, *benchmark(
+        "yyaml",
+        lambda d: yyaml.dumps(d),
+        lambda s: yyaml.loads(s),
+        sample_dict, sample_yaml
+    )))
 
     # PyYAML
     results.append(("PyYAML", size_name, *benchmark(
