@@ -1,5 +1,6 @@
 #include "yyaml.h"
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -123,6 +124,30 @@ static void yyaml_doc_link_child(yyaml_doc *doc, yyaml_level *lvl,
     if (parent->type == YYAML_SEQUENCE || parent->type == YYAML_MAPPING) {
         parent->val.integer++;
     }
+}
+
+static bool yyaml_doc_link_last(yyaml_doc *doc, uint32_t parent_idx,
+                                uint32_t child_idx) {
+    yyaml_node *parent;
+    yyaml_node *child;
+    uint32_t last;
+    if (!doc || parent_idx >= doc->node_count || child_idx >= doc->node_count) {
+        return false;
+    }
+    parent = &doc->nodes[parent_idx];
+    child = &doc->nodes[child_idx];
+    child->parent = parent_idx;
+    child->next = YYAML_INDEX_NONE;
+    if (parent->child == YYAML_INDEX_NONE) {
+        parent->child = child_idx;
+        return true;
+    }
+    last = parent->child;
+    while (doc->nodes[last].next != YYAML_INDEX_NONE) {
+        last = doc->nodes[last].next;
+    }
+    doc->nodes[last].next = child_idx;
+    return true;
 }
 
 static bool yyaml_is_flow_sequence(const char *str, size_t len,
@@ -931,6 +956,13 @@ fail:
     return NULL;
 }
 
+YYAML_API yyaml_doc *yyaml_doc_new(void) {
+    yyaml_doc *doc = (yyaml_doc *)calloc(1, sizeof(*doc));
+    if (!doc) return NULL;
+    doc->root = YYAML_INDEX_NONE;
+    return doc;
+}
+
 /* ------------------------------ traversal -------------------------------- */
 
 YYAML_API void yyaml_doc_free(yyaml_doc *doc) {
@@ -948,6 +980,13 @@ YYAML_API const yyaml_node *yyaml_doc_get_root(const yyaml_doc *doc) {
 YYAML_API const yyaml_node *yyaml_doc_get(const yyaml_doc *doc, uint32_t idx) {
     if (!doc || idx == YYAML_INDEX_NONE || idx >= doc->node_count) return NULL;
     return &doc->nodes[idx];
+}
+
+YYAML_API uint32_t yyaml_node_index(const yyaml_doc *doc, const yyaml_node *node) {
+    if (!doc || !node || node->doc != doc || !doc->nodes) return YYAML_INDEX_NONE;
+    ptrdiff_t offset = node - doc->nodes;
+    if (offset < 0 || (size_t)offset >= doc->node_count) return YYAML_INDEX_NONE;
+    return (uint32_t)offset;
 }
 
 YYAML_API const char *yyaml_doc_get_scalar_buf(const yyaml_doc *doc) {
@@ -1006,6 +1045,119 @@ YYAML_API size_t yyaml_seq_len(const yyaml_node *seq) {
 YYAML_API size_t yyaml_map_len(const yyaml_node *map) {
     if (!map || map->type != YYAML_MAPPING) return 0;
     return (size_t)map->val.integer;
+}
+
+/* --------------------------- building API ------------------------------- */
+
+YYAML_API bool yyaml_doc_set_root(yyaml_doc *doc, uint32_t idx) {
+    if (!doc || idx == YYAML_INDEX_NONE || idx >= doc->node_count) return false;
+    doc->root = idx;
+    return true;
+}
+
+YYAML_API uint32_t yyaml_doc_add_null(yyaml_doc *doc) {
+    if (!doc) return YYAML_INDEX_NONE;
+    return yyaml_doc_add_node(doc, YYAML_NULL);
+}
+
+YYAML_API uint32_t yyaml_doc_add_bool(yyaml_doc *doc, bool value) {
+    uint32_t idx;
+    if (!doc) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_BOOL);
+    if (idx != YYAML_INDEX_NONE) {
+        doc->nodes[idx].val.boolean = value;
+    }
+    return idx;
+}
+
+YYAML_API uint32_t yyaml_doc_add_int(yyaml_doc *doc, int64_t value) {
+    uint32_t idx;
+    if (!doc) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_INT);
+    if (idx != YYAML_INDEX_NONE) {
+        doc->nodes[idx].val.integer = value;
+    }
+    return idx;
+}
+
+YYAML_API uint32_t yyaml_doc_add_double(yyaml_doc *doc, double value) {
+    uint32_t idx;
+    if (!doc) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_DOUBLE);
+    if (idx != YYAML_INDEX_NONE) {
+        doc->nodes[idx].val.real = value;
+    }
+    return idx;
+}
+
+YYAML_API uint32_t yyaml_doc_add_string(yyaml_doc *doc, const char *str,
+                                        size_t len) {
+    uint32_t idx;
+    uint32_t ofs = 0;
+    if (!doc || !str) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_STRING);
+    if (idx == YYAML_INDEX_NONE) return YYAML_INDEX_NONE;
+    if (!yyaml_doc_store_string(doc, str, len, &ofs)) return YYAML_INDEX_NONE;
+    doc->nodes[idx].val.str.ofs = ofs;
+    doc->nodes[idx].val.str.len = (uint32_t)len;
+    return idx;
+}
+
+YYAML_API uint32_t yyaml_doc_add_sequence(yyaml_doc *doc) {
+    uint32_t idx;
+    if (!doc) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_SEQUENCE);
+    if (idx != YYAML_INDEX_NONE) {
+        doc->nodes[idx].val.integer = 0;
+    }
+    return idx;
+}
+
+YYAML_API uint32_t yyaml_doc_add_mapping(yyaml_doc *doc) {
+    uint32_t idx;
+    if (!doc) return YYAML_INDEX_NONE;
+    idx = yyaml_doc_add_node(doc, YYAML_MAPPING);
+    if (idx != YYAML_INDEX_NONE) {
+        doc->nodes[idx].val.integer = 0;
+    }
+    return idx;
+}
+
+YYAML_API bool yyaml_doc_seq_append(yyaml_doc *doc, uint32_t seq_idx,
+                                    uint32_t child_idx) {
+    yyaml_node *seq;
+    if (!doc || seq_idx == YYAML_INDEX_NONE || child_idx == YYAML_INDEX_NONE) {
+        return false;
+    }
+    if (seq_idx >= doc->node_count || child_idx >= doc->node_count) {
+        return false;
+    }
+    seq = &doc->nodes[seq_idx];
+    if (seq->type != YYAML_SEQUENCE) return false;
+    if (!yyaml_doc_link_last(doc, seq_idx, child_idx)) return false;
+    seq->val.integer++;
+    return true;
+}
+
+YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, uint32_t map_idx,
+                                    const char *key, size_t key_len,
+                                    uint32_t val_idx) {
+    yyaml_node *map;
+    yyaml_node *val;
+    uint32_t key_ofs = 0;
+    if (!doc || !key || map_idx == YYAML_INDEX_NONE || val_idx == YYAML_INDEX_NONE) {
+        return false;
+    }
+    if (map_idx >= doc->node_count || val_idx >= doc->node_count) return false;
+    map = &doc->nodes[map_idx];
+    if (map->type != YYAML_MAPPING) return false;
+    if (!yyaml_doc_store_string(doc, key, key_len, &key_ofs)) return false;
+    if (!yyaml_doc_link_last(doc, map_idx, val_idx)) return false;
+    val = &doc->nodes[val_idx];
+    val->flags = (uint32_t)key_len;
+    val->extra = key_ofs;
+    map->val.integer++;
+    return true;
 }
 
 /* ------------------------------ writing ---------------------------------- */

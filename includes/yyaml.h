@@ -136,6 +136,9 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                                 const yyaml_read_opts *opts,
                                 yyaml_err *err);
 
+/** @brief Allocate an empty document for manual construction. */
+YYAML_API yyaml_doc *yyaml_doc_new(void);
+
 /** @brief Free a document returned by yyaml_read. */
 YYAML_API void yyaml_doc_free(yyaml_doc *doc);
 
@@ -144,6 +147,9 @@ YYAML_API const yyaml_node *yyaml_doc_get_root(const yyaml_doc *doc);
 
 /** @brief Fetch a node by index within the document pool. */
 YYAML_API const yyaml_node *yyaml_doc_get(const yyaml_doc *doc, uint32_t idx);
+
+/** @brief Compute the index of a node within its owning document. */
+YYAML_API uint32_t yyaml_node_index(const yyaml_doc *doc, const yyaml_node *node);
 
 /** @brief Access the shared scalar buffer backing string nodes. */
 YYAML_API const char *yyaml_doc_get_scalar_buf(const yyaml_doc *doc);
@@ -191,6 +197,42 @@ YYAML_API size_t yyaml_seq_len(const yyaml_node *seq);
 
 /** @brief Number of members inside a mapping. */
 YYAML_API size_t yyaml_map_len(const yyaml_node *map);
+
+/* --------------------------- building API ------------------------------- */
+
+/** @brief Set the document root node by index. */
+YYAML_API bool yyaml_doc_set_root(yyaml_doc *doc, uint32_t idx);
+
+/** @brief Create a null node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_null(yyaml_doc *doc);
+
+/** @brief Create a boolean node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_bool(yyaml_doc *doc, bool value);
+
+/** @brief Create an integer node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_int(yyaml_doc *doc, int64_t value);
+
+/** @brief Create a double node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_double(yyaml_doc *doc, double value);
+
+/** @brief Create a string node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_string(yyaml_doc *doc, const char *str,
+                                        size_t len);
+
+/** @brief Create a sequence node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_sequence(yyaml_doc *doc);
+
+/** @brief Create a mapping node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_mapping(yyaml_doc *doc);
+
+/** @brief Append a child to a sequence. */
+YYAML_API bool yyaml_doc_seq_append(yyaml_doc *doc, uint32_t seq_idx,
+                                    uint32_t child_idx);
+
+/** @brief Append a key/value pair to a mapping. */
+YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, uint32_t map_idx,
+                                    const char *key, size_t key_len,
+                                    uint32_t val_idx);
 
 /* --------------------------- writing API --------------------------------- */
 
