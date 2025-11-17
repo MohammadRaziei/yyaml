@@ -18,7 +18,7 @@ import ryaml              # ryaml (Rust-based YAML)
 # Benchmark configuration
 # ============================================================
 MAX_ITER = 200         # Maximum number of iterations
-MAX_TIME = 6 * 60.0       # Maximum time per operation (seconds)
+MAX_TIME = 4 * 60.0       # Maximum time per operation (seconds)
 SIZES = {
     "small": 10,
     "medium": 100,

@@ -45,12 +45,24 @@ static void yyaml_set_error(yyaml_err *err, size_t pos, size_t line,
     snprintf(err->msg, sizeof(err->msg), "%s", msg ? msg : "parse error");
 }
 
+static size_t yyaml_next_capacity(size_t current, size_t need, size_t init) {
+    size_t cap = current ? current : init;
+    if (cap < init) cap = init;
+    while (cap < need) {
+        // size_t grown = cap + (cap >> 1); /* ~1.5x growth similar to std::vector */
+        size_t grown = (cap << 1); /* ~1.5x growth similar to std::vector */
+        if (grown <= cap) return need;   /* overflow guard */
+        cap = grown;
+    }
+    return cap;
+}
+
 static bool yyaml_doc_reserve_nodes(yyaml_doc *doc, size_t need) {
     size_t cap;
     yyaml_node *new_nodes;
+    if (need > SIZE_MAX / sizeof(yyaml_node)) return false;
     if (doc->node_cap >= need) return true;
-    cap = doc->node_cap ? doc->node_cap : YYAML_NODE_CAP_INIT;
-    while (cap < need) cap *= 2;
+    cap = yyaml_next_capacity(doc->node_cap, need, YYAML_NODE_CAP_INIT);
     new_nodes = (yyaml_node *)realloc(doc->nodes, cap * sizeof(yyaml_node));
     if (!new_nodes) return false;
     doc->nodes = new_nodes;
@@ -62,8 +74,7 @@ static bool yyaml_doc_reserve_str(yyaml_doc *doc, size_t need) {
     size_t cap;
     char *new_buf;
     if (doc->scalar_cap >= need) return true;
-    cap = doc->scalar_cap ? doc->scalar_cap : YYAML_STR_CAP_INIT;
-    while (cap < need) cap *= 2;
+    cap = yyaml_next_capacity(doc->scalar_cap, need, YYAML_STR_CAP_INIT);
     new_buf = (char *)realloc(doc->scalars, cap);
     if (!new_buf) return false;
     doc->scalars = new_buf;
@@ -739,6 +750,24 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
     doc = (yyaml_doc *)calloc(1, sizeof(*doc));
     if (!doc) return NULL;
     doc->root = YYAML_INDEX_NONE;
+
+    /* Pre-reserve buffers based on a lightweight heuristic to minimize
+     * reallocations on large inputs. We assume roughly one node per line and
+     * an average scalar payload proportional to the line length. */
+    {
+        size_t line_guess = 1;
+        size_t i;
+        for (i = 0; i < len; i++) {
+            if (data[i] == '\n') line_guess++;
+        }
+        /* Guard against under-allocation for densely packed flow content. */
+        size_t node_hint = line_guess + (len / 64);
+        size_t str_hint = len / 2 + 16;
+        if (node_hint < YYAML_NODE_CAP_INIT) node_hint = YYAML_NODE_CAP_INIT;
+        if (str_hint < YYAML_STR_CAP_INIT) str_hint = YYAML_STR_CAP_INIT;
+        yyaml_doc_reserve_nodes(doc, node_hint);
+        yyaml_doc_reserve_str(doc, str_hint);
+    }
 
     while (pos < len) {
         size_t line_start = pos;
@@ -1527,14 +1556,8 @@ static bool yyaml_writer_reserve(yyaml_writer *wr, size_t need) {
     size_t cap;
     char *new_buf;
     if (wr->cap >= need) return true;
-    cap = wr->cap ? wr->cap : 128;
-    while (cap < need) {
-        if (cap > SIZE_MAX / 2) {
-            cap = need;
-            break;
-        }
-        cap *= 2;
-    }
+    cap = yyaml_next_capacity(wr->cap, need, 128);
+    if (cap < need) cap = need;
     new_buf = (char *)realloc(wr->buf, cap);
     if (!new_buf) return false;
     wr->buf = new_buf;
@@ -1586,21 +1609,6 @@ static bool yyaml_writer_write_double(yyaml_writer *wr, double val) {
     }
     len = snprintf(tmp, sizeof(tmp), "%.17g", val);
     if (len < 0) return false;
-
-    // bool has_decimal = false;
-    // for (int i = 0; i < len; ++i) {
-    //     char c = tmp[i];
-    //     if (c == '.' || c == 'e' || c == 'E') {
-    //         has_decimal = true;
-    //         break;
-    //     }
-    // }
-
-    // if (!has_decimal && len + 2 < (int)sizeof(tmp)) {
-    //     tmp[len++] = '.';
-    //     tmp[len++] = '0';
-    //     tmp[len] = '\0';
-    // }
 
     return yyaml_writer_write(wr, tmp, (size_t)len);
 }
@@ -1817,6 +1825,12 @@ YYAML_API bool yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
     if (root && !doc) {
         yyaml_set_error(err, 0, 0, 0, "node is not bound to a document");
         return false;
+    }
+    /* Pre-size the writer buffer to reduce reallocations for large documents. */
+    if (doc) {
+        size_t guess = doc->scalar_len + (doc->node_count * 32) + 32;
+        if (guess < 256) guess = 256;
+        yyaml_writer_reserve(&wr, guess);
     }
     if (!root) {
         if (!yyaml_writer_write(&wr, "null", 4)) goto nomem;
