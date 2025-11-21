@@ -45,19 +45,20 @@ ensure-node:
 	fi
 
 doxygen-c: ensure-doxygen
-	mkdir -p build/temp/c/xml languages/c/api
+	mkdir -p build/temp/c/xml
 	cd languages/c && doxygen Doxyfile
 
 doxygen-cpp: ensure-doxygen
-	mkdir -p build/temp/cpp/xml languages/cpp/api
+	mkdir -p build/temp/cpp/xml
 	cd languages/cpp && doxygen Doxyfile
 
 md-c: ensure-doxybook2
 	@DOXYBOOK_BIN=$$(if [ -x "$(CURDIR)/build/doxybook2/bin/doxybook2" ]; then echo "$(CURDIR)/build/doxybook2/bin/doxybook2"; else command -v doxybook2; fi); \
 		test -n "$$DOXYBOOK_BIN" && test -x "$$DOXYBOOK_BIN" || { echo "doxybook2 missing after setup"; exit 1; }; \
+		mkdir -p build/docusaurus/languages/c/api; \
 		"$$DOXYBOOK_BIN" \
 			--input build/temp/c/xml \
-			--output languages/c/api \
+			--output build/docusaurus/languages/c/api \
 			--config languages/c/doxybook.json
 
 md-cpp: ensure-doxybook2
@@ -67,9 +68,10 @@ md-cpp: ensure-doxybook2
 	fi; \
 	DOXYBOOK_BIN=$$(if [ -x "$(CURDIR)/build/doxybook2/bin/doxybook2" ]; then echo "$(CURDIR)/build/doxybook2/bin/doxybook2"; else command -v doxybook2; fi); \
 	test -n "$$DOXYBOOK_BIN" && test -x "$$DOXYBOOK_BIN" || { echo "doxybook2 missing after setup"; exit 1; }; \
+	mkdir -p build/docusaurus/languages/cpp/api; \
 	"$$DOXYBOOK_BIN" \
 		--input build/temp/cpp/xml \
-		--output languages/cpp/api \
+		--output build/docusaurus/languages/cpp/api \
 		--config languages/cpp/doxybook.json
 
 prepare-docusaurus:
@@ -85,8 +87,6 @@ prepare-docusaurus:
 	cp languages/cpp/index.md build/docusaurus/languages/cpp/index.md
 	cp benchmarks/index.mdx build/docusaurus/benchmarks/index.mdx
 	cp benchmarks/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
-	cp -r languages/c/api/. build/docusaurus/languages/c/api/ 2>/dev/null || true
-	cp -r languages/cpp/api/. build/docusaurus/languages/cpp/api/ 2>/dev/null || true
 
 docusaurus-build: ensure-node
 	cd build/docusaurus && \
