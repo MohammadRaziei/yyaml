@@ -1,0 +1,90 @@
+---
+title: Benchmarks
+id: benchmarks-index
+slug: /benchmarks
+---
+
+# Benchmark results
+
+The chart below visualizes serialized `dump` and `load` timings (milliseconds) across data sizes for yyaml compared to other YAML libraries. Data comes from `benchmark.csv` and is copied into the Docusaurus build during `make build`.
+
+<div id="chart"></div>
+
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script>
+(async function renderBenchmarkChart() {
+  const csvUrl = './benchmark.csv';
+
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const entries = [];
+    for (let i = 1; i < lines.length; i++) {
+      const [library, dataSize, dumpStr, loadStr] = lines[i].split(',');
+      entries.push({
+        library,
+        dataSize,
+        dump: Number.parseFloat(dumpStr),
+        load: Number.parseFloat(loadStr),
+      });
+    }
+    const order = ['small', 'medium', 'large', 'xlarge'];
+    const categories = Array.from(new Set(entries.map((e) => e.dataSize)))
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+    const seriesMap = new Map();
+    const ensureSeries = (name) => {
+      if (!seriesMap.has(name)) {
+        seriesMap.set(name, {
+          name,
+          data: Array(categories.length).fill(null),
+          type: 'line',
+        });
+      }
+      return seriesMap.get(name);
+    };
+
+    entries.forEach(({ library, dataSize, dump, load }) => {
+      const idx = categories.indexOf(dataSize);
+      ensureSeries(`${library} (dump)`).data[idx] = dump;
+      ensureSeries(`${library} (load)`).data[idx] = load;
+    });
+
+    return { categories, series: Array.from(seriesMap.values()) };
+  }
+
+  async function loadData() {
+    const response = await fetch(csvUrl);
+    if (!response.ok) throw new Error('Failed to load benchmark CSV');
+    const text = await response.text();
+    return parseCsv(text);
+  }
+
+  try {
+    const { categories, series } = await loadData();
+    Highcharts.chart('chart', {
+      title: { text: 'yyaml performance overview' },
+      xAxis: { categories, title: { text: 'Data size' } },
+      yAxis: {
+        title: { text: 'Time (ms, lower is better)' },
+        min: 0,
+        type: 'logarithmic',
+      },
+      tooltip: {
+        shared: true,
+        valueDecimals: 3,
+        valueSuffix: ' ms',
+      },
+      legend: { maxHeight: 220 },
+      series,
+    });
+  } catch (err) {
+    const el = document.getElementById('chart');
+    if (el) {
+      el.innerText = 'Unable to render chart: ' + err.message;
+    }
+    console.error(err);
+  }
+})();
+</script>
+
+If JavaScript is disabled, the chart is hidden; open `benchmark.csv` directly to inspect the data.

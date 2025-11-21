@@ -1,0 +1,48 @@
+---
+title: yyaml Documentation
+id: index
+slug: /
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# yyaml documentation
+
+yyaml is a high-performance YAML parser written in C with zero-copy parsing paths and a thin C++ binding layer for ergonomic integration. This site outlines the architecture, APIs, and benchmarks so you can embed yyaml confidently.
+
+## Architecture at a glance
+- **C core**: streaming lexer, DOM builder, and emitter tuned for cache locality
+- **Memory model**: arena allocators with configurable ownership to avoid churn
+- **Error handling**: structured error codes plus optional string diagnostics
+- **C++ bindings**: RAII wrappers over the C handles, iterator-friendly traversal, and exception/`std::error_code` options
+- **Extensibility**: hooks for custom allocators and I/O abstractions
+
+## Documentation pipeline
+1. **Doxygen** extracts XML from `src/` + `include/` (C) and `bindings/cpp/` (C++).
+2. **Doxybook2** turns XML into Docusaurus-ready Markdown in `docs/languages/<lang>/api/`.
+3. **Prepare** copies landing pages, language pages, and benchmarks into `docs/build/docusaurus/`.
+4. **Docusaurus build** emits the final static site to `docs/build/output-html/`.
+
+<Tabs>
+  <TabItem value="c" label="C API">
+
+The C API is the authoritative interface with stable structs and functions. Start with [languages/c/index.md](languages/c/index.md) and browse the generated API reference once Doxygen/Doxybook have run.
+  </TabItem>
+  <TabItem value="cpp" label="C++ API">
+
+The C++ bindings wrap the C handles with RAII and strong typing. See [languages/cpp/index.md](languages/cpp/index.md) for idioms and integration notes.
+  </TabItem>
+  <TabItem value="bench" label="Benchmarks">
+
+Performance data is visualized in [benchmarks/index.mdx](benchmarks/index.mdx) from the canonical CSV source.
+  </TabItem>
+</Tabs>
+
+## How to build the docs
+```bash
+cd docs
+make
+```
+
+Outputs land in `docs/build/output-html/`.

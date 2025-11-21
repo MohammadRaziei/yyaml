@@ -1,0 +1,18 @@
+{
+  "projectName": "yyaml C API",
+  "baseUrl": "",
+  "target": "docusaurus",
+  "mainPageInRoot": true,
+  "indexInFolders": true,
+  "useRelativeUrls": true,
+  "linkPrefix": "",
+  "linkSuffix": "",
+  "outputFileExtension": ".md",
+  "toc": {
+    "includeBrief": true,
+    "maxDepth": 3
+  },
+  "pages": {
+    "mainPage": "index.md"
+  }
+}
