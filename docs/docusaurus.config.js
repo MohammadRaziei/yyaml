@@ -5,7 +5,8 @@ import {themes as prismThemes} from 'prism-react-renderer';
 /** @type {import('@docusaurus/types').Config} */
 
 // Source of truth for the yyaml docs site; copied into build/docusaurus during make.
-module.exports = {
+
+const config = {
   title: 'yyaml',
   tagline: 'High-performance YAML parsing in C with C++ bindings',
   url: 'https://mohammadraziei.github.io',
