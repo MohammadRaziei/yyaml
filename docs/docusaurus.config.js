@@ -1,3 +1,9 @@
+import {themes as prismThemes} from 'prism-react-renderer';
+
+// This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
+
+/** @type {import('@docusaurus/types').Config} */
+
 // Source of truth for the yyaml docs site; copied into build/docusaurus during make.
 module.exports = {
   title: 'yyaml',
