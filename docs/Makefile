@@ -25,9 +25,9 @@ ensure-doxybook2:
 		url="https://github.com/matusnovak/doxybook2/releases/download/v1.5.0/doxybook2-linux-amd64-v1.5.0.zip"; \
 		tmp="$$(mktemp -p build -t doxybook2.XXXXXX.zip)"; \
 		if command -v curl >/dev/null 2>&1; then \
-			curl -L "$$url" -o "$$tmp"; \
+			curl -L "$$url" -o "$$tmp" --silent; \
 		elif command -v wget >/dev/null 2>&1; then \
-			wget -O "$$tmp" "$$url"; \
+			wget -O "$$tmp" "$$url" --no-verbose; \
 		else \
 			echo "Please install curl or wget to download doxybook2"; exit 1; \
 		fi; \
@@ -80,9 +80,8 @@ prepare-docusaurus:
 	mkdir -p build/docusaurus build/docusaurus/languages/c/api build/docusaurus/languages/cpp/api build/docusaurus/benchmarks
 	# Copy all md, mdx, csv, svg, json, png, js (excluding build/) preserving structure
 	rsync -av --prune-empty-dirs \
-		--include='*/' \
-		--include='*.md' --include='*.mdx' --include='*.csv' --include='*.svg' --include='*.json' --include='*.png' --include='*.js' \
-		--exclude='build/**' --exclude='*' ./ build/docusaurus/
+		--include='*' --exclude 'Makefile' --exclude 'Doxyfile' \
+		--exclude='build/**' ./ build/docusaurus/
 	# Ensure benchmark CSV from root benchmarks/python is available
 	mkdir -p build/docusaurus/benchmarks
 	cp ../benchmarks/python/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
