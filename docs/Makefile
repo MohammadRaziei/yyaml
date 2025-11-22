@@ -52,7 +52,7 @@ doxygen-cpp: ensure-doxygen
 	mkdir -p build/temp/cpp/xml
 	cd languages/cpp && doxygen Doxyfile
 
-md-c: ensure-doxybook2
+md-c: ensure-doxybook2 doxygen-c
 	@DOXYBOOK_BIN=$$(if [ -x "$(CURDIR)/build/doxybook2/bin/doxybook2" ]; then echo "$(CURDIR)/build/doxybook2/bin/doxybook2"; else command -v doxybook2; fi); \
 		test -n "$$DOXYBOOK_BIN" && test -x "$$DOXYBOOK_BIN" || { echo "doxybook2 missing after setup"; exit 1; }; \
 		mkdir -p build/docusaurus/languages/c/api; \
@@ -61,7 +61,7 @@ md-c: ensure-doxybook2
 			--output build/docusaurus/languages/c/api \
 			--config languages/c/doxybook.json
 
-md-cpp: ensure-doxybook2
+md-cpp: ensure-doxybook2 doxygen-cpp
 	@if [ ! -f build/temp/cpp/xml/index.xml ] || ! grep -q "<compound" build/temp/cpp/xml/index.xml 2>/dev/null; then \
 		echo "No C++ XML found; skipping C++ Markdown generation."; \
 		exit 0; \
@@ -73,6 +73,9 @@ md-cpp: ensure-doxybook2
 		--input build/temp/cpp/xml \
 		--output build/docusaurus/languages/cpp/api \
 		--config languages/cpp/doxybook.json
+
+prepare-md: md-c md-cpp
+	echo "md files are ready!"
 
 prepare-docusaurus:
 	# Copy landing + languages + benchmarks into build/docusaurus
@@ -86,11 +89,11 @@ prepare-docusaurus:
 	mkdir -p build/docusaurus/benchmarks
 	cp ../benchmarks/python/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
 
-docusaurus-build: ensure-node
+docusaurus-build: ensure-node prepare-docusaurus prepare-md
 	cd build/docusaurus && \
 		if [ ! -d node_modules ]; then npm install --legacy-peer-deps; fi && \
 		npx docusaurus build --out-dir ../output-html
 
-docs-only: doxygen-c doxygen-cpp md-c md-cpp
+# docs-only: doxygen-c doxygen-cpp md-c md-cpp
 
-build: docs-only prepare-docusaurus docusaurus-build
+build: docusaurus-build
