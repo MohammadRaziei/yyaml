@@ -77,16 +77,15 @@ md-cpp: ensure-doxybook2
 prepare-docusaurus:
 	# Copy landing + languages + benchmarks into build/docusaurus
 	# Copy API markdowns into docusaurus/languages/<lang>/api
-	mkdir -p build/docusaurus/languages/c/api build/docusaurus/languages/cpp/api build/docusaurus/benchmarks
-	cp docusaurus.config.js build/docusaurus/docusaurus.config.js
-	cp sidebars.js build/docusaurus/sidebars.js
-	cp package.json build/docusaurus/package.json
-	cp index.mdx build/docusaurus/index.mdx
-	cp languages/index.md build/docusaurus/languages/index.md
-	cp languages/c/index.md build/docusaurus/languages/c/index.md
-	cp languages/cpp/index.md build/docusaurus/languages/cpp/index.md
-	cp benchmarks/index.mdx build/docusaurus/benchmarks/index.mdx
-	cp benchmarks/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
+	mkdir -p build/docusaurus build/docusaurus/languages/c/api build/docusaurus/languages/cpp/api build/docusaurus/benchmarks
+	# Copy all md, mdx, csv, svg, json, png, js (excluding build/) preserving structure
+	rsync -av --prune-empty-dirs \
+		--include='*/' \
+		--include='*.md' --include='*.mdx' --include='*.csv' --include='*.svg' --include='*.json' --include='*.png' --include='*.js' \
+		--exclude='build/**' --exclude='*' ./ build/docusaurus/
+	# Ensure benchmark CSV from root benchmarks/python is available
+	mkdir -p build/docusaurus/benchmarks
+	cp ../benchmarks/python/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
 
 docusaurus-build: ensure-node
 	cd build/docusaurus && \
