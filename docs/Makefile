@@ -83,17 +83,18 @@ prepare-docusaurus:
 	mkdir -p build/docusaurus build/docusaurus/languages/c/api build/docusaurus/languages/cpp/api build/docusaurus/benchmarks
 	# Copy all md, mdx, csv, svg, json, png, js (excluding build/) preserving structure
 	rsync -av --prune-empty-dirs \
-		--include='*' --exclude 'Makefile' --exclude 'Doxyfile' \
+		--exclude 'Makefile' --exclude 'Doxyfile' \
 		--exclude='build/**' ./ build/docusaurus/
 	# Ensure benchmark CSV from root benchmarks/python is available
 	mkdir -p build/docusaurus/benchmarks
 	cp ../benchmarks/python/benchmark.csv build/docusaurus/benchmarks/benchmark.csv
 
-docusaurus-build: ensure-node prepare-docusaurus prepare-md
+docs-only: prepare-md prepare-docusaurus
+
+docusaurus-build: ensure-node docs-only
 	cd build/docusaurus && \
 		if [ ! -d node_modules ]; then npm install --legacy-peer-deps; fi && \
 		npx docusaurus build --out-dir ../output-html
 
-# docs-only: doxygen-c doxygen-cpp md-c md-cpp
 
 build: docusaurus-build
