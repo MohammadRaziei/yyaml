@@ -1,4 +1,6 @@
-# yyaml Documentation
+# yyaml 
+
+![yyaml-logo](docs/static/img/yyaml.svg)
 
 yyaml is a high-performance YAML parser and emitter written in C with ergonomic C++ bindings. It is optimized for speed and low memory usage, inspired by the architecture of yyjson, and designed to slot into latency-sensitive systems.
 
