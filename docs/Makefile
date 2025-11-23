@@ -210,3 +210,7 @@ serve:
 	else \
 		cd $(OUTPUT_DIR) && npx serve -p $(SERVE_PORT); \
 	fi
+
+# serve:
+# 	@echo "Starting documentation server..."
+# 	cd $(DOCUSAURUS_DIR) && npm run serve

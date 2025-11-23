@@ -10,7 +10,7 @@ const config = {
   title: 'yyaml',
   tagline: 'High-performance YAML parsing in C with C++ bindings',
   url: 'https://mohammadraziei.github.io',
-  baseUrl: '/yyaml',
+  baseUrl: process.env.GITHUB_CI ? '/yyaml/' : '/',
   trailingSlash: false,
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
