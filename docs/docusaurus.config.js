@@ -16,7 +16,7 @@ const config = {
   onBrokenMarkdownLinks: 'warn',
   organizationName: 'yyaml',
   projectName: 'yyaml-docs',
-  staticDirectories: [],
+  staticDirectories: ["static"],
   markdown: {
     format: 'mdx',
   },
@@ -48,7 +48,7 @@ const config = {
         logo: {
           alt: 'yyaml Logo',
           src: 'img/yyaml.svg',
-          width: 32,
+          width: 64,
           height: 32,
         },
         items: [
