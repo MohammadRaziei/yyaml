@@ -50,12 +50,12 @@ cdef extern from "yyaml.h":
         yyaml_string_val str
 
     ctypedef struct yyaml_node:
-        const yyaml_doc *doc
+        yyaml_doc *doc
         uint32_t type
         uint32_t flags
-        uint32_t parent
-        uint32_t next
-        uint32_t child
+        yyaml_node *parent
+        yyaml_node *next
+        yyaml_node *child
         uint32_t extra
         yyaml_node_val val
 
@@ -65,9 +65,7 @@ cdef extern from "yyaml.h":
     yyaml_doc *yyaml_doc_new()
     void yyaml_doc_free(yyaml_doc *doc)
     const yyaml_node *yyaml_doc_get_root(const yyaml_doc *doc)
-    const yyaml_node *yyaml_doc_get(const yyaml_doc *doc, uint32_t idx)
     const char *yyaml_doc_get_scalar_buf(const yyaml_doc *doc)
-    size_t yyaml_doc_node_count(const yyaml_doc *doc)
 
     bint yyaml_is_scalar(const yyaml_node *node)
     bint yyaml_is_container(const yyaml_node *node)
@@ -76,31 +74,22 @@ cdef extern from "yyaml.h":
     size_t yyaml_seq_len(const yyaml_node *seq)
     size_t yyaml_map_len(const yyaml_node *map)
 
-    bint yyaml_doc_set_root(yyaml_doc *doc, uint32_t idx)
-    uint32_t yyaml_doc_add_null(yyaml_doc *doc)
-    uint32_t yyaml_doc_add_bool(yyaml_doc *doc, bint value)
-    uint32_t yyaml_doc_add_int(yyaml_doc *doc, int64_t value)
-    uint32_t yyaml_doc_add_double(yyaml_doc *doc, double value)
-    uint32_t yyaml_doc_add_string(yyaml_doc *doc, const char *str, size_t len)
-    uint32_t yyaml_doc_add_sequence(yyaml_doc *doc)
-    uint32_t yyaml_doc_add_mapping(yyaml_doc *doc)
-    bint yyaml_doc_seq_append(yyaml_doc *doc, uint32_t seq_idx, uint32_t child_idx)
-    bint yyaml_doc_map_append(yyaml_doc *doc, uint32_t map_idx,
+    yyaml_node *yyaml_doc_add_null(yyaml_doc *doc)
+    yyaml_node *yyaml_doc_add_bool(yyaml_doc *doc, bint value)
+    yyaml_node *yyaml_doc_add_int(yyaml_doc *doc, int64_t value)
+    yyaml_node *yyaml_doc_add_double(yyaml_doc *doc, double value)
+    yyaml_node *yyaml_doc_add_string(yyaml_doc *doc, const char *str, size_t len)
+    yyaml_node *yyaml_doc_add_sequence(yyaml_doc *doc)
+    yyaml_node *yyaml_doc_add_mapping(yyaml_doc *doc)
+    bint yyaml_doc_set_root(yyaml_doc *doc, const yyaml_node *root)
+    bint yyaml_doc_seq_append(yyaml_doc *doc, const yyaml_node *seq, const yyaml_node *child)
+    bint yyaml_doc_map_append(yyaml_doc *doc, const yyaml_node *map,
                               const char *key, size_t key_len,
-                              uint32_t val_idx)
+                              const yyaml_node *value)
 
     bint yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
                      const yyaml_write_opts *opts, yyaml_err *err)
     void yyaml_free_string(char *str)
-
-# yyaml uses UINT32_MAX as the end-of-list sentinel for child nodes.
-DEF _NONE_IDX = 0xFFFFFFFF
-
-
-cdef inline str _quote_string(str text):
-    escaped = text.replace("\\", "\\\\").replace("\"", "\\\"")
-    escaped = escaped.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t")
-    return f"\"{escaped}\""
 
 
 cdef inline str _format_error(const yyaml_err *err):
@@ -110,52 +99,6 @@ cdef inline str _format_error(const yyaml_err *err):
     msg_len = strlen(<const char *>err.msg)
     text = (<const char *>err.msg)[:msg_len].decode("utf-8", "replace")
     return f"{text} (line {err.line}, column {err.column})"
-
-
-cdef uint32_t _build_node(object obj, yyaml_doc *doc):
-    cdef uint32_t idx
-    cdef uint32_t child
-    cdef bytes data
-    if obj is None:
-        return yyaml_doc_add_null(doc)
-    if obj is True:
-        return yyaml_doc_add_bool(doc, 1)
-    if obj is False:
-        return yyaml_doc_add_bool(doc, 0)
-    if isinstance(obj, int):
-        return yyaml_doc_add_int(doc, <int64_t>obj)
-    if isinstance(obj, float):
-        return yyaml_doc_add_double(doc, obj)
-    if isinstance(obj, str):
-        data = obj.encode("utf-8")
-        return yyaml_doc_add_string(doc, data, <size_t>len(data))
-    if isinstance(obj, (list, tuple)):
-        idx = yyaml_doc_add_sequence(doc)
-        if idx == _NONE_IDX:
-            return _NONE_IDX
-        for item in obj:
-            child = _build_node(item, doc)
-            if child == _NONE_IDX:
-                return _NONE_IDX
-            if not yyaml_doc_seq_append(doc, idx, child):
-                return _NONE_IDX
-        return idx
-    if isinstance(obj, dict):
-        idx = yyaml_doc_add_mapping(doc)
-        if idx == _NONE_IDX:
-            return _NONE_IDX
-        for key, value in obj.items():
-            key_text = str(key)
-            key_bytes = key_text.encode("utf-8")
-            child = _build_node(value, doc)
-            if child == _NONE_IDX:
-                return _NONE_IDX
-            if not yyaml_doc_map_append(doc, idx, key_bytes,
-                                        <size_t>len(key_bytes), child):
-                return _NONE_IDX
-        return idx
-    # Fallback: store the string representation
-    return _build_node(str(obj), doc)
 
 
 cdef class Node:
@@ -280,13 +223,11 @@ cdef class Node:
             if buf is NULL:
                 raise ValueError("yyaml scalar buffer is null")
             result = {}
-            child = yyaml_doc_get(self._node.doc, self._node.child)
+            child = self._node.child
             while child is not NULL:
                 key = (<const char *>buf + child.extra)[:child.flags].decode("utf-8")
                 result[key] = _wrap_node(self._owner, child).to_dict()
-                if child.next == _NONE_IDX:
-                    break
-                child = yyaml_doc_get(self._node.doc, child.next)
+                child = child.next
             return result
         raise TypeError("unknown yyaml node type")
 
@@ -298,7 +239,7 @@ cdef class NodeIterator:
     def __cinit__(self, Node parent):
         self._parent = parent
         if parent._node is not NULL and yyaml_is_container(parent._node):
-            self._next = yyaml_doc_get(parent._node.doc, parent._node.child)
+            self._next = parent._node.child
         else:
             self._next = NULL
 
@@ -309,10 +250,7 @@ cdef class NodeIterator:
         if self._next is NULL:
             raise StopIteration
         current = _wrap_node(self._parent._owner, self._next)
-        if self._next.next == _NONE_IDX:
-            self._next = NULL
-        else:
-            self._next = yyaml_doc_get(self._parent._node.doc, self._next.next)
+        self._next = self._next.next
         return current
 
 
@@ -369,7 +307,8 @@ cdef class Document:
         cdef char *buffer = NULL
         cdef size_t length = 0
         cdef yyaml_err err
-        if not yyaml_write(yyaml_doc_get_root(self._doc), &buffer, &length, opts_ptr, &err):
+        cdef const yyaml_node *root = yyaml_doc_get_root(self._doc)
+        if not yyaml_write(root, &buffer, &length, opts_ptr, &err):
             raise ValueError(_format_error(&err))
         try:
             return (<const char *>buffer)[:length].decode("utf-8")
@@ -408,22 +347,6 @@ cdef class Document:
             content = handle.read().decode("utf-8")
         return Document.parse(content, opts=opts)
 
-    @staticmethod
-    def from_dict(obj, *, opts=None):
-        """Create a :class:`Document` from a native Python object."""
-        cdef yyaml_doc *doc = yyaml_doc_new()
-        if doc is NULL:
-            raise MemoryError("failed to allocate document")
-
-        cdef uint32_t root_idx = _build_node(obj, doc)
-        if root_idx == _NONE_IDX or not yyaml_doc_set_root(doc, root_idx):
-            yyaml_doc_free(doc)
-            raise ValueError("failed to build document from input")
-
-        cdef Document wrapper = Document.__new__(Document)
-        wrapper._doc = doc
-        return wrapper
-
 
 # Convenience functions similar to the :mod:`json` API
 
@@ -446,7 +369,7 @@ def dumps(obj, *, opts=None):
     """Serialize Python objects or :class:`Document` instances to YAML text."""
     if isinstance(obj, Document):
         return obj.dump(opts=opts)
-    return Document.from_dict(obj, opts=opts).dump(opts=opts)
+    raise NotImplementedError("Building documents from Python objects not yet implemented")
 
 
 def dump(obj, fp, *, opts=None):

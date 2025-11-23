@@ -280,6 +280,12 @@ void test_write_sequence_of_maps_inlines_keys(void) {
     size_t output_len = 0;
     const yyaml_node *root = yyaml_doc_get_root(doc);
     bool result = yyaml_write(root, &output, &output_len, NULL, &err);
+    
+    // Always free output even if test fails
+    if (output) {
+        yyaml_free_string(output);
+    }
+    
     TEST_ASSERT_TRUE(result);
     TEST_ASSERT_NOT_NULL(output);
 
@@ -287,8 +293,6 @@ void test_write_sequence_of_maps_inlines_keys(void) {
     TEST_ASSERT_NULL(strstr(output, "-\n    id: 1001"));
     TEST_ASSERT_NOT_NULL(strstr(output, "- id: 1002"));
     TEST_ASSERT_NULL(strstr(output, "-\n    id: 1002"));
-
-    yyaml_free_string(output);
 }
 
 // Test utility functions
