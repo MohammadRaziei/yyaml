@@ -40,10 +40,17 @@ const config = {
       // Replace with your project's social card
       image: 'img/docusaurus-social-card.jpg',
       colorMode: {
-        respectPrefersColorScheme: true,
+        defaultMode: 'light',
+        respectPrefersColorScheme: false,
       },
       navbar: {
-      title: 'yyaml',
+        title: 'yyaml',
+        logo: {
+          alt: 'yyaml Logo',
+          src: 'img/yyaml.svg',
+          width: 32,
+          height: 32,
+        },
         items: [
         { to: '/', label: 'Overview', position: 'left' },
         { to: '/languages', label: 'Languages', position: 'left' },
