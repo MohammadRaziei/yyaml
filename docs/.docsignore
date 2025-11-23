@@ -1,0 +1,10 @@
+# Files to exclude when copying documentation for Docusaurus build
+Makefile
+Doxyfile
+doxybook.json
+*.zip
+*.tmp
+*.log
+build/
+temp/
+node_modules/

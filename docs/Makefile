@@ -175,9 +175,9 @@ prepare-docusaurus:
 	# Create necessary directories
 	mkdir -p $(DOCUSAURUS_DIR) $(C_API_DIR) $(CPP_API_DIR) $(DOCUSAURUS_DIR)/benchmarks
 	
-	# Copy all documentation files (excluding build artifacts)
+	# Copy all documentation files using .docsignore for exclusions
 	rsync -av --prune-empty-dirs \
-		--exclude 'Makefile' --exclude 'Doxyfile' \
+		--exclude-from=.docsignore \
 		--exclude='$(BUILD_DIR)/**' ./ $(DOCUSAURUS_DIR)/
 	
 	# Copy benchmark data

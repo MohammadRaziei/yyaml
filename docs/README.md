@@ -45,6 +45,7 @@ If you want to use a custom domain:
 - `benchmarks/` - Performance benchmarks
 - `src/` - Docusaurus source files
 - `static/` - Static assets (images, etc.)
+- `.docsignore` - Files to exclude during documentation build
 
 ## API Documentation
 
