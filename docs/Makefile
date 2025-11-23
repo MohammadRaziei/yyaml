@@ -23,7 +23,7 @@ DOCUSAURUS_DIR := $(BUILD_DIR)/docusaurus
 OUTPUT_DIR := $(BUILD_DIR)/output-html
 
 # Doxybook2 configuration
-DOXYBOOK2_ROOT := /tmp/doxybook2
+DOXYBOOK2_ROOT := $(TEMP_DIR)/doxybook2
 DOXYBOOK2_BIN := $(DOXYBOOK2_ROOT)/bin/doxybook2
 DOXYBOOK2_VERSION := v1.5.0
 DOXYBOOK2_URL := https://github.com/matusnovak/doxybook2/releases/download/$(DOXYBOOK2_VERSION)/doxybook2-linux-amd64-$(DOXYBOOK2_VERSION).zip
