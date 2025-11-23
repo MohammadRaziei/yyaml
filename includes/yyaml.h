@@ -43,6 +43,11 @@ extern "C" {
 
 /* -------------------------- configuration flags -------------------------- */
 
+/* Configure the initial capacity of the node pool. */
+#ifndef YYAML_NODE_CAP_INIT
+#    define YYAML_NODE_CAP_INIT 64
+#endif
+
 /* Configure the initial capacity of the scalar string buffer. */
 #ifndef YYAML_STR_CAP_INIT
 #    define YYAML_STR_CAP_INIT 256
@@ -63,25 +68,7 @@ typedef enum yyaml_type {
     YYAML_MAPPING   /**< YAML mapping (object) */
 } yyaml_type;
 
-/* Forward declarations */
-typedef struct yyaml_node yyaml_node;
-typedef struct yyaml_kv_pair yyaml_kv_pair;
-
-/**
- * @brief Document structure containing parsed YAML nodes and metadata.
- */
-typedef struct yyaml_doc {
-    yyaml_node *root;           /**< Root node of the document */
-    yyaml_node *first_node;     /**< First node in the linked list */
-    yyaml_node *last_node;      /**< Last node in the linked list */
-    yyaml_kv_pair *first_kv;    /**< First key-value pair in the linked list */
-    yyaml_kv_pair *last_kv;     /**< Last key-value pair in the linked list */
-    size_t node_count;          /**< Total number of nodes */
-    size_t kv_count;            /**< Total number of key-value pairs */
-    char *scalars;              /**< Shared scalar buffer */
-    size_t scalar_len;          /**< Length of used scalar buffer */
-    size_t scalar_cap;          /**< Capacity of scalar buffer */
-} yyaml_doc;
+typedef struct yyaml_doc yyaml_doc;
 
 /**
  * @brief A single node stored inside a yyaml_doc.
@@ -90,9 +77,10 @@ typedef struct yyaml_node {
     const yyaml_doc *doc; /**< owning document */
     uint32_t type;        /**< yyaml_type */
     uint32_t flags;       /**< reserved for future use */
-    struct yyaml_node *parent;      /**< parent node, NULL if none */
-    struct yyaml_node *next;        /**< next sibling node, NULL if none */
-    struct yyaml_node *child;       /**< first child node (for sequence/mapping) */
+    uint32_t parent;      /**< index of parent node, UINT32_MAX if none */
+    uint32_t next;        /**< next sibling index, UINT32_MAX if none */
+    uint32_t child;       /**< index of first child (for sequence/mapping) */
+    uint32_t extra;       /**< used for mapping: index of key scalar */
     union {
         bool boolean; /**< YYAML_BOOL */
         int64_t integer; /**< YYAML_INT */
@@ -103,16 +91,6 @@ typedef struct yyaml_node {
         } str; /**< YYAML_STRING */
     } val; /**< Node payload */
 } yyaml_node;
-
-/**
- * @brief Key-value pair for mapping nodes.
- */
-typedef struct yyaml_kv_pair {
-    uint32_t key_ofs;     /**< offset of key in scalar buffer */
-    uint32_t key_len;     /**< length of key in bytes */
-    yyaml_node *value;    /**< value node */
-    struct yyaml_kv_pair *next; /**< next key-value pair */
-} yyaml_kv_pair;
 
 
 /**
@@ -222,39 +200,39 @@ YYAML_API size_t yyaml_map_len(const yyaml_node *map);
 
 /* --------------------------- building API ------------------------------- */
 
-/** @brief Set the document root node. */
-YYAML_API bool yyaml_doc_set_root(yyaml_doc *doc, yyaml_node *node);
+/** @brief Set the document root node by index. */
+YYAML_API bool yyaml_doc_set_root(yyaml_doc *doc, uint32_t idx);
 
-/** @brief Create a null node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_null(yyaml_doc *doc);
+/** @brief Create a null node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_null(yyaml_doc *doc);
 
-/** @brief Create a boolean node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_bool(yyaml_doc *doc, bool value);
+/** @brief Create a boolean node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_bool(yyaml_doc *doc, bool value);
 
-/** @brief Create an integer node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_int(yyaml_doc *doc, int64_t value);
+/** @brief Create an integer node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_int(yyaml_doc *doc, int64_t value);
 
-/** @brief Create a double node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_double(yyaml_doc *doc, double value);
+/** @brief Create a double node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_double(yyaml_doc *doc, double value);
 
-/** @brief Create a string node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_string(yyaml_doc *doc, const char *str,
+/** @brief Create a string node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_string(yyaml_doc *doc, const char *str,
                                         size_t len);
 
-/** @brief Create a sequence node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_sequence(yyaml_doc *doc);
+/** @brief Create a sequence node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_sequence(yyaml_doc *doc);
 
-/** @brief Create a mapping node and return it, or NULL on failure. */
-YYAML_API yyaml_node *yyaml_doc_add_mapping(yyaml_doc *doc);
+/** @brief Create a mapping node and return its index, or UINT32_MAX on failure. */
+YYAML_API uint32_t yyaml_doc_add_mapping(yyaml_doc *doc);
 
 /** @brief Append a child to a sequence. */
-YYAML_API bool yyaml_doc_seq_append(yyaml_doc *doc, yyaml_node *seq,
-                                    yyaml_node *child);
+YYAML_API bool yyaml_doc_seq_append(yyaml_doc *doc, uint32_t seq_idx,
+                                    uint32_t child_idx);
 
 /** @brief Append a key/value pair to a mapping. */
-YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, yyaml_node *map,
+YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, uint32_t map_idx,
                                     const char *key, size_t key_len,
-                                    yyaml_node *val);
+                                    uint32_t val_idx);
 
 /* --------------------------- writing API --------------------------------- */
 
