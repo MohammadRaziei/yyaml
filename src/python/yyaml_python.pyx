@@ -81,11 +81,11 @@ cdef extern from "yyaml.h":
     yyaml_node *yyaml_doc_add_string(yyaml_doc *doc, const char *str, size_t len)
     yyaml_node *yyaml_doc_add_sequence(yyaml_doc *doc)
     yyaml_node *yyaml_doc_add_mapping(yyaml_doc *doc)
-    bint yyaml_doc_set_root(yyaml_doc *doc, const yyaml_node *root)
-    bint yyaml_doc_seq_append(yyaml_doc *doc, const yyaml_node *seq, const yyaml_node *child)
-    bint yyaml_doc_map_append(yyaml_doc *doc, const yyaml_node *map,
+    bint yyaml_doc_set_root(yyaml_doc *doc, yyaml_node *root)
+    bint yyaml_doc_seq_append(yyaml_doc *doc, yyaml_node *seq, yyaml_node *child)
+    bint yyaml_doc_map_append(yyaml_doc *doc, yyaml_node *map,
                               const char *key, size_t key_len,
-                              const yyaml_node *value)
+                              yyaml_node *value)
 
     bint yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
                      const yyaml_write_opts *opts, yyaml_err *err)
@@ -99,6 +99,52 @@ cdef inline str _format_error(const yyaml_err *err):
     msg_len = strlen(<const char *>err.msg)
     text = (<const char *>err.msg)[:msg_len].decode("utf-8", "replace")
     return f"{text} (line {err.line}, column {err.column})"
+
+
+cdef yyaml_node *_build_node(object obj, yyaml_doc *doc):
+    cdef yyaml_node *node
+    cdef yyaml_node *child
+    cdef bytes data
+    if obj is None:
+        return yyaml_doc_add_null(doc)
+    if obj is True:
+        return yyaml_doc_add_bool(doc, 1)
+    if obj is False:
+        return yyaml_doc_add_bool(doc, 0)
+    if isinstance(obj, int):
+        return yyaml_doc_add_int(doc, <int64_t>obj)
+    if isinstance(obj, float):
+        return yyaml_doc_add_double(doc, obj)
+    if isinstance(obj, str):
+        data = obj.encode("utf-8")
+        return yyaml_doc_add_string(doc, data, <size_t>len(data))
+    if isinstance(obj, (list, tuple)):
+        node = yyaml_doc_add_sequence(doc)
+        if node is NULL:
+            return NULL
+        for item in obj:
+            child = _build_node(item, doc)
+            if child is NULL:
+                return NULL
+            if not yyaml_doc_seq_append(doc, node, child):
+                return NULL
+        return node
+    if isinstance(obj, dict):
+        node = yyaml_doc_add_mapping(doc)
+        if node is NULL:
+            return NULL
+        for key, value in obj.items():
+            key_text = str(key)
+            key_bytes = key_text.encode("utf-8")
+            child = _build_node(value, doc)
+            if child is NULL:
+                return NULL
+            if not yyaml_doc_map_append(doc, node, key_bytes,
+                                        <size_t>len(key_bytes), child):
+                return NULL
+        return node
+    # Fallback: store the string representation
+    return _build_node(str(obj), doc)
 
 
 cdef class Node:
@@ -347,6 +393,22 @@ cdef class Document:
             content = handle.read().decode("utf-8")
         return Document.parse(content, opts=opts)
 
+    @staticmethod
+    def from_dict(obj, *, opts=None):
+        """Create a :class:`Document` from a native Python object."""
+        cdef yyaml_doc *doc = yyaml_doc_new()
+        if doc is NULL:
+            raise MemoryError("failed to allocate document")
+
+        cdef yyaml_node *root = _build_node(obj, doc)
+        if root is NULL or not yyaml_doc_set_root(doc, root):
+            yyaml_doc_free(doc)
+            raise ValueError("failed to build document from input")
+
+        cdef Document wrapper = Document.__new__(Document)
+        wrapper._doc = doc
+        return wrapper
+
 
 # Convenience functions similar to the :mod:`json` API
 
@@ -369,7 +431,7 @@ def dumps(obj, *, opts=None):
     """Serialize Python objects or :class:`Document` instances to YAML text."""
     if isinstance(obj, Document):
         return obj.dump(opts=opts)
-    raise NotImplementedError("Building documents from Python objects not yet implemented")
+    return Document.from_dict(obj, opts=opts).dump(opts=opts)
 
 
 def dump(obj, fp, *, opts=None):

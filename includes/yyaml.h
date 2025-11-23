@@ -63,7 +63,25 @@ typedef enum yyaml_type {
     YYAML_MAPPING   /**< YAML mapping (object) */
 } yyaml_type;
 
-typedef struct yyaml_doc yyaml_doc;
+/* Forward declarations */
+typedef struct yyaml_node yyaml_node;
+typedef struct yyaml_kv_pair yyaml_kv_pair;
+
+/**
+ * @brief Document structure containing parsed YAML nodes and metadata.
+ */
+typedef struct yyaml_doc {
+    yyaml_node *root;           /**< Root node of the document */
+    yyaml_node *first_node;     /**< First node in the linked list */
+    yyaml_node *last_node;      /**< Last node in the linked list */
+    yyaml_kv_pair *first_kv;    /**< First key-value pair in the linked list */
+    yyaml_kv_pair *last_kv;     /**< Last key-value pair in the linked list */
+    size_t node_count;          /**< Total number of nodes */
+    size_t kv_count;            /**< Total number of key-value pairs */
+    char *scalars;              /**< Shared scalar buffer */
+    size_t scalar_len;          /**< Length of used scalar buffer */
+    size_t scalar_cap;          /**< Capacity of scalar buffer */
+} yyaml_doc;
 
 /**
  * @brief A single node stored inside a yyaml_doc.
@@ -75,7 +93,6 @@ typedef struct yyaml_node {
     struct yyaml_node *parent;      /**< parent node, NULL if none */
     struct yyaml_node *next;        /**< next sibling node, NULL if none */
     struct yyaml_node *child;       /**< first child node (for sequence/mapping) */
-    uint32_t extra;       /**< used for mapping: offset of key scalar */
     union {
         bool boolean; /**< YYAML_BOOL */
         int64_t integer; /**< YYAML_INT */
@@ -86,6 +103,16 @@ typedef struct yyaml_node {
         } str; /**< YYAML_STRING */
     } val; /**< Node payload */
 } yyaml_node;
+
+/**
+ * @brief Key-value pair for mapping nodes.
+ */
+typedef struct yyaml_kv_pair {
+    uint32_t key_ofs;     /**< offset of key in scalar buffer */
+    uint32_t key_len;     /**< length of key in bytes */
+    yyaml_node *value;    /**< value node */
+    struct yyaml_kv_pair *next; /**< next key-value pair */
+} yyaml_kv_pair;
 
 
 /**

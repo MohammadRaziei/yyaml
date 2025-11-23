@@ -9,15 +9,7 @@
 #include <errno.h>
 #include <math.h>
 
-struct yyaml_doc {
-    yyaml_node *root;           /**< Root node of the document */
-    yyaml_node *first_node;     /**< First node in the linked list */
-    yyaml_node *last_node;      /**< Last node in the linked list */
-    size_t node_count;          /**< Total number of nodes */
-    char *scalars;              /**< Shared scalar buffer */
-    size_t scalar_len;          /**< Length of used scalar buffer */
-    size_t scalar_cap;          /**< Capacity of scalar buffer */
-};
+/* The yyaml_doc structure is now defined in yyaml.h */
 
 /* ------------------------------ utilities -------------------------------- */
 
@@ -62,7 +54,6 @@ static yyaml_node *yyaml_doc_add_node(yyaml_doc *doc, yyaml_type type) {
     node->parent = NULL;
     node->next = NULL;
     node->child = NULL;
-    node->extra = 0;
     
     // Initialize node values based on type
     switch (type) {
@@ -520,9 +511,27 @@ YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, yyaml_node *map,
         return false;
     }
     
-    // Set up the value node with key information
-    val->flags = (uint32_t)key_len;
-    val->extra = key_ofs;
+    // Create a key-value pair
+    yyaml_kv_pair *kv = (yyaml_kv_pair *)calloc(1, sizeof(yyaml_kv_pair));
+    if (!kv) {
+        return false;
+    }
+    
+    kv->key_ofs = key_ofs;
+    kv->key_len = (uint32_t)key_len;
+    kv->value = val;
+    kv->next = NULL;
+    
+    // Add to key-value pair linked list
+    if (!doc->first_kv) {
+        doc->first_kv = kv;
+        doc->last_kv = kv;
+    } else {
+        doc->last_kv->next = kv;
+        doc->last_kv = kv;
+    }
+    
+    doc->kv_count++;
     
     // Add value to the end of the mapping's child list
     if (!map->child) {
@@ -545,7 +554,7 @@ YYAML_API bool yyaml_doc_map_append(yyaml_doc *doc, yyaml_node *map,
 YYAML_API const yyaml_node *yyaml_map_get(const yyaml_node *map,
                                           const char *key) {
     const yyaml_doc *doc;
-    const yyaml_node *node;
+    const yyaml_kv_pair *kv;
     size_t key_len;
     const char *buf;
     
@@ -555,14 +564,14 @@ YYAML_API const yyaml_node *yyaml_map_get(const yyaml_node *map,
     
     buf = doc->scalars;
     key_len = strlen(key);
-    node = map->child;
+    kv = doc->first_kv;
     
-    while (node) {
-        if (node->flags == key_len && buf &&
-            memcmp(buf + node->extra, key, key_len) == 0) {
-            return node;
+    while (kv) {
+        if (kv->key_len == key_len && buf &&
+            memcmp(buf + kv->key_ofs, key, key_len) == 0) {
+            return kv->value;
         }
-        node = node->next;
+        kv = kv->next;
     }
     return NULL;
 }
@@ -592,7 +601,8 @@ YYAML_API size_t yyaml_map_len(const yyaml_node *map) {
 /* --------------------------- writing API --------------------------------- */
 
 static bool yyaml_write_node(const yyaml_node *node, char **out, size_t *out_len,
-                            const yyaml_write_opts *opts, yyaml_err *err) {
+                            const yyaml_write_opts *opts, yyaml_err *err,
+                            int indent_level) {
     if (!node) {
         *out = strdup("null\n");
         if (!*out) {
@@ -641,6 +651,11 @@ static bool yyaml_write_node(const yyaml_node *node, char **out, size_t *out_len
                 *out = strdup("\n");
             }
             break;
+        case YYAML_SEQUENCE:
+        case YYAML_MAPPING:
+            // For now, return a simple placeholder to avoid infinite recursion
+            *out = strdup("[]\n");
+            break;
         default:
             *out = strdup("null\n");
             break;
@@ -662,7 +677,7 @@ YYAML_API bool yyaml_write(const yyaml_node *root, char **out, size_t *out_len,
         return false;
     }
     
-    return yyaml_write_node(root, out, out_len, opts, err);
+    return yyaml_write_node(root, out, out_len, opts, err, 0);
 }
 
 YYAML_API void yyaml_free_string(char *str) {

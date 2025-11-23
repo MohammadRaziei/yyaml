@@ -67,10 +67,10 @@ static void print_escaped_json(const char *str, size_t len) {
 static void dump_node_json(const yyaml_doc *doc, const yyaml_node *node, size_t depth);
 
 static void dump_sequence_json(const yyaml_doc *doc, const yyaml_node *seq, size_t depth) {
-    const yyaml_node *child = yyaml_doc_get(doc, seq->child);
+    const yyaml_node *child = seq->child;
     puts("[");
     while (child) {
-        const yyaml_node *next = yyaml_doc_get(doc, child->next);
+        const yyaml_node *next = child->next;
         print_indent(depth + 2);
         dump_node_json(doc, child, depth + 2);
         if (next) {
@@ -84,24 +84,34 @@ static void dump_sequence_json(const yyaml_doc *doc, const yyaml_node *seq, size
 }
 
 static void dump_mapping_json(const yyaml_doc *doc, const yyaml_node *map, size_t depth) {
-    const yyaml_node *child = yyaml_doc_get(doc, map->child);
+    const yyaml_kv_pair *kv = doc->first_kv;
     const char *scalars = yyaml_doc_get_scalar_buf(doc);
+    bool first = true;
+    
     puts("{");
-    while (child) {
-        const yyaml_node *next = yyaml_doc_get(doc, child->next);
-        print_indent(depth + 2);
-        if (scalars && child->flags > 0) {
-            print_escaped_json(scalars + child->extra, child->flags);
-        } else {
-            fputs("\"<key>\"", stdout);
+    
+    // Iterate through all key-value pairs and find those that belong to this mapping
+    while (kv) {
+        if (kv->value && kv->value->parent == map) {
+            if (!first) {
+                putchar(',');
+                putchar('\n');
+            }
+            print_indent(depth + 2);
+            if (scalars && kv->key_len > 0) {
+                print_escaped_json(scalars + kv->key_ofs, kv->key_len);
+            } else {
+                fputs("\"<key>\"", stdout);
+            }
+            fputs(": ", stdout);
+            dump_node_json(doc, kv->value, depth + 2);
+            first = false;
         }
-        fputs(": ", stdout);
-        dump_node_json(doc, child, depth + 2);
-        if (next) {
-            putchar(',');
-        }
+        kv = kv->next;
+    }
+    
+    if (!first) {
         putchar('\n');
-        child = next;
     }
     print_indent(depth);
     putchar('}');

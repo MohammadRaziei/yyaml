@@ -285,7 +285,7 @@ private:
 inline node node::at(const std::string &key) const {
     require_bound();
     if (!is_mapping()) {
-        throw yyaml_error("yyaml::node only work at mapping type");
+        throw yyaml_error("yyaml::node is not a mapping");
     }
     const ::yyaml_node *child = yyaml_map_get(_node, key.c_str());
     return node(child);
@@ -294,7 +294,7 @@ inline node node::at(const std::string &key) const {
 inline node node::at(std::size_t index) const {
     require_bound();
     if (!is_sequence()) {
-        throw yyaml_error("yyaml::node only work at sequence type");
+        throw yyaml_error("yyaml::node is not a sequence");
     }
     const ::yyaml_node *child = yyaml_seq_get(_node, index);
     return node(child);
@@ -351,15 +351,18 @@ inline void node::foreach(Func &&func) const {
     if (!buf) {
         throw yyaml_error("yyaml scalar buffer is null");
     }
-    const ::yyaml_node *child = _node->child;
 
-    while (child) {
-        std::string key;
-        key.assign(buf + static_cast<std::size_t>(child->extra),
-                   static_cast<std::size_t>(child->flags));
-
-        func(key, node(child));
-        child = child->next;
+    // Iterate through key-value pairs
+    const ::yyaml_kv_pair *kv = doc->first_kv;
+    while (kv) {
+        // Check if this key-value pair belongs to the current mapping
+        if (kv->value && kv->value->parent == _node) {
+            std::string key;
+            key.assign(buf + static_cast<std::size_t>(kv->key_ofs),
+                       static_cast<std::size_t>(kv->key_len));
+            func(key, node(kv->value));
+        }
+        kv = kv->next;
     }
 }
 
