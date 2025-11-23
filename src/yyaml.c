@@ -1316,6 +1316,15 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                              "multiple root nodes");
             goto fail;
         }
+        /* Protect against ambiguous leading dash scalars such as "-123" which
+         * look like sequence items without context. */
+        if (content_end > content_start && data[content_start] == '-' &&
+            content_end - content_start > 1 &&
+            isdigit((unsigned char)data[content_start + 1])) {
+            yyaml_set_error(err, line_start, line, indent + 1,
+                             "unexpected scalar inside container");
+            goto fail;
+        }
         if (!yyaml_parse_scalar(data + content_start,
                                  content_end - content_start, doc,
                                  &temp_node, cfg, err, line_start, line,
@@ -1610,6 +1619,18 @@ static bool yyaml_writer_write_double(yyaml_writer *wr, double val) {
     len = snprintf(tmp, sizeof(tmp), "%.17g", val);
     if (len < 0) return false;
 
+    /* Ensure we preserve a decimal suffix when the value originated from a
+     * floating literal like "1.0". The default %g formatting drops the
+     * fractional part for integral values, so append ".0" when no decimal or
+     * exponent is present. */
+    if (strchr(tmp, '.') == NULL && strchr(tmp, 'e') == NULL &&
+        strchr(tmp, 'E') == NULL) {
+        if ((size_t)len + 2 >= sizeof(tmp)) return false;
+        tmp[len++] = '.';
+        tmp[len++] = '0';
+        tmp[len] = '\0';
+    }
+
     return yyaml_writer_write(wr, tmp, (size_t)len);
 }
 
@@ -1709,6 +1730,9 @@ static bool yyaml_writer_write_sequence(const yyaml_doc *doc,
     bool first = true;
     if (!node || node->type != YYAML_SEQUENCE) return false;
     if (node->child == YYAML_INDEX_NONE) {
+        if (!inline_first) {
+            if (!yyaml_writer_indent(wr, indent, depth)) return false;
+        }
         return yyaml_writer_write(wr, "[]", 2);
     }
     idx = node->child;
@@ -1748,6 +1772,9 @@ static bool yyaml_writer_write_mapping(const yyaml_doc *doc,
     bool first = true;
     if (!node || node->type != YYAML_MAPPING) return false;
     if (node->child == YYAML_INDEX_NONE) {
+        if (!inline_first) {
+            if (!yyaml_writer_indent(wr, indent, depth)) return false;
+        }
         return yyaml_writer_write(wr, "{}", 2);
     }
     idx = node->child;
@@ -1760,7 +1787,12 @@ static bool yyaml_writer_write_mapping(const yyaml_doc *doc,
             if (!yyaml_writer_indent(wr, indent, depth)) return false;
         }
         if (!yyaml_writer_write_key(doc, child, wr)) return false;
-        if (child->type == YYAML_SEQUENCE || child->type == YYAML_MAPPING) {
+        if (child->type == YYAML_MAPPING && child->child == YYAML_INDEX_NONE) {
+            if (!yyaml_writer_write(wr, ": {}", 4)) return false;
+        } else if (child->type == YYAML_SEQUENCE &&
+                   child->child == YYAML_INDEX_NONE) {
+            if (!yyaml_writer_write(wr, ": []", 4)) return false;
+        } else if (child->type == YYAML_SEQUENCE || child->type == YYAML_MAPPING) {
             if (!yyaml_writer_write(wr, ":\n", 2)) return false;
             if (!yyaml_write_node_internal(doc, child, depth + 1, indent, wr,
                                            err))
