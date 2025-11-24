@@ -19,6 +19,25 @@
   color: white;
 }
 
+.logoContainer {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.logo {
+  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3)) 
+          drop-shadow(0 0 40px rgba(255, 255, 255, 0.2))
+          drop-shadow(0 0 60px rgba(255, 255, 255, 0.1));
+  transition: filter 0.3s ease;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 25px rgba(255, 255, 255, 0.4)) 
+          drop-shadow(0 0 50px rgba(255, 255, 255, 0.3))
+          drop-shadow(0 0 75px rgba(255, 255, 255, 0.2));
+}
+
 .hero__title {
   font-size: 3.5rem;
   font-weight: 700;
@@ -55,7 +74,7 @@
 
 .buttons .button--primary {
   background-color: white;
-  color: #ff6b35;
+  color: var(--ifm-color-primary);
   border: 2px solid white;
 }
 
@@ -74,7 +93,7 @@
 
 .buttons .button--outline:hover {
   background-color: white;
-  color: #ff6b35;
+  color: var(--ifm-color-primary);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
 }
@@ -89,14 +108,33 @@
   background: #1e1e1e;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
   transform: perspective(1000px) rotateY(-5deg) rotateX(5deg);
   transition: transform 0.3s ease;
   max-width: 400px;
+  position: relative;
+}
+
+.codeWindow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .codeWindow:hover {
   transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+}
+
+.codeWindow:hover::before {
+  opacity: 1;
 }
 
 .codeHeader {

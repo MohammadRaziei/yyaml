@@ -3,6 +3,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
+import {useColorMode} from '@docusaurus/theme-common';
 
 import Heading from '@theme/Heading';
 import styles from './index.module.css';
@@ -14,6 +15,9 @@ function HomepageHeader() {
       <div className="container">
         <div className={styles.heroContent}>
           <div className={styles.heroText}>
+            {/* <div className={styles.logoContainer}>
+              <img src="img/yyaml.svg" width={100} alt="yyaml Logo" className={styles.logo} />
+            </div> */}
             <Heading as="h1" className="hero__title">
               {siteConfig.title}
             </Heading>
