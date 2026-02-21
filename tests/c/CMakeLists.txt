@@ -1,9 +1,6 @@
 # CMake configuration for tests directory
 cmake_minimum_required(VERSION 3.10)
 
-# Add bundled Unity as a subdirectory
-add_subdirectory(bundled)
-
 # Create test executables
 add_executable(yyaml_tests
     test_yyaml.c
@@ -18,14 +15,12 @@ add_executable(debug_yaml
     debug_yaml.c
 )
 
-# Link with Unity and yyaml libraries
+# Link with yyaml library 
 target_link_libraries(yyaml_tests
-    Unity
     yyaml
 )
 
 target_link_libraries(yyaml_file_tests
-    Unity
     yyaml
 )
 
@@ -35,17 +30,17 @@ target_link_libraries(debug_yaml
 
 # Include directories
 target_include_directories(yyaml_tests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bundled
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/includes
 )
 
 target_include_directories(yyaml_file_tests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bundled
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/includes
 )
 
 target_include_directories(debug_yaml PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/bundled
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/includes
 )
 

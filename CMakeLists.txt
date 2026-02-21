@@ -53,7 +53,7 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 
-if(${BUILD_PYTHON} OR DEFINED SKBUILD)
+if(BUILD_PYTHON OR DEFINED SKBUILD)
 
     # Find Python and Cython
     find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
