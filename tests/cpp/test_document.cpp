@@ -1,8 +1,8 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
+#include "utest.h"
 #include "yyaml.hpp"
 
 #include <string>
+#include <cmath>
 
 namespace {
 
@@ -47,7 +47,7 @@ bool nodes_equal(const yyaml::node &lhs, const yyaml::node &rhs) {
 
 } // namespace
 
-TEST_CASE("document parses scalar and container nodes") {
+UTEST(cpp_tests, document_parses_scalar_and_container_nodes) {
     const char *yaml = R"(name: Example
 count: 42
 price: 13.37
@@ -64,40 +64,39 @@ nested:
     auto doc = yyaml::document::parse(yaml);
     auto root = doc.root();
 
-    REQUIRE(root.is_mapping());
-    REQUIRE(root.size() == 6);
+    ASSERT_TRUE(root.is_mapping());
+    ASSERT_EQ(6, root.size());
 
     auto name = root["name"];
-    CHECK(name.is_string());
-    CHECK(name.as_string() == "Example");
+    ASSERT_TRUE(name.is_string());
+    ASSERT_STREQ("Example", name.as_string().c_str());
 
     auto count = root["count"];
-    CHECK(count.is_int());
-    CHECK(count.as_int() == 42);
-    CHECK(count.is_number());
-    CHECK(count.as_number() == doctest::Approx(42));
+    ASSERT_TRUE(count.is_int());
+    ASSERT_EQ(42, count.as_int());
+    ASSERT_TRUE(count.is_number());
+    ASSERT_TRUE(std::abs(count.as_number() - 42.0) < 0.0001);
 
     auto price = root["price"];
-    CHECK(price.is_double());
-    CHECK(price.as_double() == doctest::Approx(13.37));
+    ASSERT_TRUE(price.is_double());
+    ASSERT_TRUE(std::abs(price.as_double() - 13.37) < 0.0001);
 
     auto active = root["active"];
-    CHECK(active.is_bool());
-    CHECK(active.to_string() == "true");
+    ASSERT_TRUE(active.is_bool());
+    ASSERT_STREQ("true", active.to_string().c_str());
 
     auto items = root["items"];
-    REQUIRE(items.is_sequence());
-    CHECK(items.size() == 3);
-    CHECK(items.at(1).as_string() == "second");
+    ASSERT_TRUE(items.is_sequence());
+    ASSERT_EQ(3, items.size());
+    ASSERT_STREQ("second", items.at(1).as_string().c_str());
 
     auto nested = root["nested"];
-    REQUIRE(nested.is_mapping());
-    CHECK(nested["inner"].as_double() == doctest::Approx(2.5));
-    CHECK(nested["empty"].is_null());
-    CHECK_NOTHROW(nested["empty"].as_null());
+    ASSERT_TRUE(nested.is_mapping());
+    ASSERT_TRUE(std::abs(nested["inner"].as_double() - 2.5) < 0.0001);
+    ASSERT_TRUE(nested["empty"].is_null());
 }
 
-TEST_CASE("document dump supports roundtrip serialization") {
+UTEST(cpp_tests, document_dump_supports_roundtrip_serialization) {
     const char *yaml = R"(service:
   name: order-pipeline
   replicas: 3
@@ -120,13 +119,13 @@ metadata:
 
     auto doc = yyaml::document::parse(yaml);
     auto serialized = doc.dump();
-    CHECK(serialized.find("order-pipeline") != std::string::npos);
+    ASSERT_TRUE(serialized.find("order-pipeline") != std::string::npos);
 
     auto roundtrip = yyaml::document::parse(serialized);
-    CHECK(nodes_equal(doc.root(), roundtrip.root()));
+    ASSERT_TRUE(nodes_equal(doc.root(), roundtrip.root()));
 }
 
-TEST_CASE("node to_string emits YAML for scalars and subtrees") {
+UTEST(cpp_tests, node_to_string_emits_yaml_for_scalars_and_subtrees) {
     const char *yaml = R"(root:
   nested:
     value: 99
@@ -141,27 +140,28 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
     auto doc = yyaml::document::parse(yaml);
     auto root = doc.root()["root"];
 
-    SUBCASE("scalar roundtrip") {
+    // scalar roundtrip
+    {
         auto flag = root["flag"];
         auto serialized = flag.to_string();
-        CHECK(serialized == "false");
+        ASSERT_STREQ("false", serialized.c_str());
         auto roundtrip = yyaml::document::parse(serialized);
-        CHECK(nodes_equal(flag, roundtrip.root()));
+        ASSERT_TRUE(nodes_equal(flag, roundtrip.root()));
     }
 
-    SUBCASE("mapping roundtrip") {
+    // mapping roundtrip
+    {
         auto nested = root["nested"];
         auto serialized = nested.to_string();
-        CAPTURE(serialized);
         auto parsed = yyaml::document::parse(serialized);
-        CHECK(nodes_equal(nested, parsed.root()));
+        ASSERT_TRUE(nodes_equal(nested, parsed.root()));
     }
 
-    SUBCASE("sequence roundtrip") {
+    // sequence roundtrip
+    {
         auto list = root["list"];
         auto serialized = list.to_string();
-        CAPTURE(serialized);
-        CHECK(serialized == "- a\n- b\n- c");
+        ASSERT_STREQ("- a\n- b\n- c", serialized.c_str());
 
         auto indent = [](const std::string &src) {
             std::string out;
@@ -178,86 +178,22 @@ TEST_CASE("node to_string emits YAML for scalars and subtrees") {
 
         auto wrapped_yaml = std::string("wrapper:\n") + indent(serialized);
         auto parsed = yyaml::document::parse(wrapped_yaml);
-        CHECK(nodes_equal(list, parsed.root()["wrapper"]));
+        ASSERT_TRUE(nodes_equal(list, parsed.root()["wrapper"]));
     }
 
-    SUBCASE("root equivalence") {
+    // root equivalence
+    {
         auto doc_root = doc.root();
         yyaml::write_opts opts{};
         opts.indent = 2;
         opts.final_newline = false;
-        CHECK(doc_root.to_string() == doc.dump(&opts));
+        ASSERT_STREQ(doc_root.to_string().c_str(), doc.dump(&opts).c_str());
     }
 }
 
-
-TEST_CASE("node to_string emits YAML for scalars and subtrees") {
-    const char *yaml = R"(root:
-  nested:
-    value: 99
-    empty: null
-  list:
-    - a
-    - b
-    - c
-  flag: false
-)";
-
-    auto doc = yyaml::document::parse(yaml);
-    auto root = doc.root()["root"];
-
-    SUBCASE("scalar roundtrip") {
-        auto flag = root["flag"];
-        auto serialized = flag.to_string();
-        CHECK(serialized == "false");
-        auto roundtrip = yyaml::document::parse(serialized);
-        CHECK(nodes_equal(flag, roundtrip.root()));
-    }
-
-    SUBCASE("mapping roundtrip") {
-        auto nested = root["nested"];
-        auto serialized = nested.to_string();
-        CAPTURE(serialized);
-        auto parsed = yyaml::document::parse(serialized);
-        CHECK(nodes_equal(nested, parsed.root()));
-    }
-
-    SUBCASE("sequence roundtrip") {
-        auto list = root["list"];
-        auto serialized = list.to_string();
-        CAPTURE(serialized);
-        CHECK(serialized == "- a\n- b\n- c");
-
-        auto indent = [](const std::string &src) {
-            std::string out;
-            out.reserve(src.size() * 2 + 2);
-            out.append("  ");
-            for (std::size_t i = 0; i < src.size(); ++i) {
-                out.push_back(src[i]);
-                if (src[i] == '\n' && i + 1 < src.size()) {
-                    out.append("  ");
-                }
-            }
-            return out;
-        };
-
-        auto wrapped_yaml = std::string("wrapper:\n") + indent(serialized);
-        auto parsed = yyaml::document::parse(wrapped_yaml);
-        CHECK(nodes_equal(list, parsed.root()["wrapper"]));
-    }
-
-    SUBCASE("root equivalence") {
-        auto doc_root = doc.root();
-        yyaml::write_opts opts{};
-        opts.indent = 2;
-        opts.final_newline = false;
-        CHECK(doc_root.to_string() == doc.dump(&opts));
-    }
-}
-
-TEST_CASE("node empty reflects structure and scalar content") {
+UTEST(cpp_tests, node_empty_reflects_structure_and_scalar_content) {
     yyaml::node unbound;
-    CHECK(unbound.empty());
+    ASSERT_TRUE(unbound.empty());
 
     const char *yaml = R"(empty_seq: []
 filled_map:
@@ -273,19 +209,19 @@ flag: false
     auto doc = yyaml::document::parse(yaml);
     auto root = doc.root();
 
-    CHECK_FALSE(root.empty());
-    CHECK(root["missing"].empty());
-    REQUIRE(root["empty_seq"].is_sequence());
-    CHECK(root["empty_seq"].empty());
-    CHECK_FALSE(root["filled_map"].empty());
-    CHECK_FALSE(root["filled_seq"].empty());
-    CHECK(root["blank"].empty());
-    CHECK_FALSE(root["text"].empty());
-    CHECK(root["nullish"].empty());
-    CHECK_FALSE(root["flag"].empty());
+    ASSERT_FALSE(root.empty());
+    ASSERT_TRUE(root["missing"].empty());
+    ASSERT_TRUE(root["empty_seq"].is_sequence());
+    ASSERT_TRUE(root["empty_seq"].empty());
+    ASSERT_FALSE(root["filled_map"].empty());
+    ASSERT_FALSE(root["filled_seq"].empty());
+    ASSERT_TRUE(root["blank"].empty());
+    ASSERT_FALSE(root["text"].empty());
+    ASSERT_TRUE(root["nullish"].empty());
+    ASSERT_FALSE(root["flag"].empty());
 }
 
-TEST_CASE("node iterator walks children forward") {
+UTEST(cpp_tests, node_iterator_walks_children_forward) {
     const char *yaml = R"(items:
   - zero
   - one
@@ -298,58 +234,61 @@ mapping:
     auto doc = yyaml::document::parse(yaml);
     auto root = doc.root();
 
-    SUBCASE("sequence iteration") {
+    // sequence iteration
+    {
         auto iter = root["items"].iter();
         auto first = iter.next();
-        REQUIRE(first);
-        CHECK(first->as_string() == "zero");
+        ASSERT_TRUE(first);
+        ASSERT_STREQ("zero", first->as_string().c_str());
 
         auto second = iter.next();
-        REQUIRE(second);
-        CHECK(second->as_string() == "one");
+        ASSERT_TRUE(second);
+        ASSERT_STREQ("one", second->as_string().c_str());
 
         auto third = iter.next();
-        REQUIRE(third);
-        CHECK(third->as_string() == "two");
+        ASSERT_TRUE(third);
+        ASSERT_STREQ("two", third->as_string().c_str());
 
-        CHECK(iter.next() == nullptr);
+        ASSERT_FALSE(iter.next());
     }
 
-    SUBCASE("mapping iteration yields values") {
+    // mapping iteration yields values
+    {
         auto iter = root["mapping"].iter();
 
         auto first = iter.next();
-        REQUIRE(first);
-        CHECK(first->as_int() == 1);
+        ASSERT_TRUE(first);
+        ASSERT_EQ(1, first->as_int());
 
         auto second = iter.next();
-        REQUIRE(second);
-        CHECK(second->as_int() == 2);
+        ASSERT_TRUE(second);
+        ASSERT_EQ(2, second->as_int());
 
-        CHECK(iter.next() == nullptr);
+        ASSERT_FALSE(iter.next());
     }
 
-    SUBCASE("const iteration uses const_node_iterator") {
+    // const iteration uses const_node_iterator
+    {
         const yyaml::node const_items = root["items"];
         auto iter = const_items.iter();
 
         const yyaml::node *first = iter.next();
-        REQUIRE(first);
-        CHECK(first->as_string() == "zero");
+        ASSERT_TRUE(first);
+        ASSERT_STREQ("zero", first->as_string().c_str());
 
         const yyaml::node *second = iter.next();
-        REQUIRE(second);
-        CHECK(second->as_string() == "one");
+        ASSERT_TRUE(second);
+        ASSERT_STREQ("one", second->as_string().c_str());
 
         const yyaml::node *third = iter.next();
-        REQUIRE(third);
-        CHECK(third->as_string() == "two");
+        ASSERT_TRUE(third);
+        ASSERT_STREQ("two", third->as_string().c_str());
 
-        CHECK(iter.next() == nullptr);
+        ASSERT_FALSE(iter.next());
     }
 }
 
-TEST_CASE("document builder constructs nested structures") {
+UTEST(cpp_tests, document_builder_constructs_nested_structures) {
     auto doc = yyaml::document::create();
 
     auto root = doc.add_mapping();
@@ -370,13 +309,12 @@ TEST_CASE("document builder constructs nested structures") {
     doc.map_append(root, "meta", meta);
 
     auto roundtrip = yyaml::document::parse(doc.dump());
-    CHECK(nodes_equal(doc.root(), roundtrip.root()));
+    ASSERT_TRUE(nodes_equal(doc.root(), roundtrip.root()));
 
     auto built_root = doc.root();
-    CHECK(built_root["title"].as_string() == "builder-demo");
-    CHECK(built_root["count"].as_int() == 7);
-    CHECK(built_root["active"].as_bool());
-    CHECK(built_root["tags"].size() == 2);
-    CHECK(built_root["meta"].is_mapping());
+    ASSERT_STREQ("builder-demo", built_root["title"].as_string().c_str());
+    ASSERT_EQ(7, built_root["count"].as_int());
+    ASSERT_TRUE(built_root["active"].as_bool());
+    ASSERT_EQ(2, built_root["tags"].size());
+    ASSERT_TRUE(built_root["meta"].is_mapping());
 }
-

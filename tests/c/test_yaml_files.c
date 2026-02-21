@@ -337,5 +337,3 @@ UTEST(yyaml_file_tests, test_error_handling) {
     
     if (doc) yyaml_doc_free(doc);
 }
-
-UTEST_MAIN();

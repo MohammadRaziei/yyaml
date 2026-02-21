@@ -434,5 +434,3 @@ UTEST(yyaml_tests, test_doc_get_functions) {
     
     if (doc) yyaml_doc_free(doc);
 }
-
-UTEST_MAIN();
