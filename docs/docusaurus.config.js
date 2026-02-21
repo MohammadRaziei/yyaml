@@ -47,7 +47,7 @@ const config = {
         title: 'yyaml',
         logo: {
           alt: 'yyaml Logo',
-          src: 'img/yyaml.svg',
+          src: '/img/yyaml.svg',
           width: 64,
           height: 32,
         },
