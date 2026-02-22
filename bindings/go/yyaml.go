@@ -260,42 +260,24 @@ func (n *Node) toInterface() interface{} {
 			return result
 		}
 		
-		// Get the first child
-		if n.node.child == ^C.uint32_t(0) {
-			return result
-		}
-		
-		// Iterate through mapping children (key-value pairs)
-		// In yyaml, mapping children are stored as alternating key-value pairs
-		keyIdx := n.node.child
-		for keyIdx != ^C.uint32_t(0) {
-			cKey := C.yyaml_doc_get(n.doc.doc, keyIdx)
-			if cKey == nil {
+		// Get the first child (value node)
+		childIdx := n.node.child
+		for childIdx != ^C.uint32_t(0) {
+			cChild := C.yyaml_doc_get(n.doc.doc, childIdx)
+			if cChild == nil {
 				break
 			}
 			
-			// Get the key string
-			keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cKey.extra)
-			keyLen := cKey.flags
+			// Get the key from the child's extra and flags fields
+			keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cChild.extra)
+			keyLen := cChild.flags
 			key := C.GoStringN((*C.char)(unsafe.Pointer(keyOffset)), C.int(keyLen))
 			
-			// Get the value (next sibling)
-			valIdx := cKey.next
-			if valIdx == ^C.uint32_t(0) {
-				break
-			}
+			// The child node itself is the value
+			result[key] = (&Node{node: cChild, doc: n.doc}).toInterface()
 			
-			cValue := C.yyaml_doc_get(n.doc.doc, valIdx)
-			if cValue != nil {
-				result[key] = (&Node{node: cValue, doc: n.doc}).toInterface()
-			}
-			
-			// Move to next key-value pair
-			if cValue != nil && cValue.next != ^C.uint32_t(0) {
-				keyIdx = cValue.next
-			} else {
-				break
-			}
+			// Move to next child (next value node)
+			childIdx = cChild.next
 		}
 		return result
 	default:
