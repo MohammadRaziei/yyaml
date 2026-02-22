@@ -5,48 +5,11 @@ package yyaml
 import "C"
 import (
 	"errors"
+	"fmt"
+	"io"
 	"runtime"
 	"unsafe"
 )
-
-// Type represents the type of a YAML node.
-type Type int
-
-const (
-	TypeNull     Type = C.YYAML_NULL
-	TypeBool     Type = C.YYAML_BOOL
-	TypeInt      Type = C.YYAML_INT
-	TypeDouble   Type = C.YYAML_DOUBLE
-	TypeString   Type = C.YYAML_STRING
-	TypeSequence Type = C.YYAML_SEQUENCE
-	TypeMapping  Type = C.YYAML_MAPPING
-)
-
-// ReadOptions configures the YAML parser behavior.
-type ReadOptions struct {
-	AllowDuplicateKeys   bool
-	AllowTrailingContent bool
-	AllowInfNan          bool
-	MaxNesting           int
-}
-
-// WriteOptions configures the YAML writer behavior.
-type WriteOptions struct {
-	Indent       int
-	FinalNewline bool
-}
-
-// Error contains details about a parsing or writing error.
-type Error struct {
-	Pos    int
-	Line   int
-	Column int
-	Msg    string
-}
-
-func (e *Error) Error() string {
-	return e.Msg
-}
 
 // Document represents a YAML document tree.
 type Document struct {
@@ -59,30 +22,55 @@ type Node struct {
 	doc  *Document
 }
 
-// Read parses YAML text into a document tree.
-func Read(data []byte, opts *ReadOptions) (*Document, error) {
-	var cOpts *C.yyaml_read_opts
-	if opts != nil {
-		cOpts = &C.yyaml_read_opts{
-			allow_duplicate_keys:   C.bool(opts.AllowDuplicateKeys),
-			allow_trailing_content: C.bool(opts.AllowTrailingContent),
-			allow_inf_nan:          C.bool(opts.AllowInfNan),
-			max_nesting:            C.size_t(opts.MaxNesting),
-		}
+// Loads parses YAML string into Go interface{}.
+func Loads(str string) (interface{}, error) {
+	doc, err := parseString(str)
+	if err != nil {
+		return nil, err
 	}
+	defer doc.Close()
+	return doc.ToInterface(), nil
+}
 
+// Load parses YAML from io.Reader into Go interface{}.
+func Load(r io.Reader) (interface{}, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	return Loads(string(data))
+}
+
+// Dumps converts Go value to YAML string.
+func Dumps(v interface{}) (string, error) {
+	doc := fromInterface(v)
+	if doc == nil {
+		return "", errors.New("failed to create document")
+	}
+	defer doc.Close()
+	return doc.DumpString()
+}
+
+// Dump converts Go value to YAML and writes to io.Writer.
+func Dump(w io.Writer, v interface{}) error {
+	data, err := Dumps(v)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write([]byte(data))
+	return err
+}
+
+// parseString parses YAML string into Document.
+func parseString(str string) (*Document, error) {
 	var cErr C.yyaml_err
-	cData := (*C.char)(unsafe.Pointer(&data[0]))
-	cLen := C.size_t(len(data))
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+	cLen := C.size_t(len(str))
 
-	cDoc := C.yyaml_read(cData, cLen, cOpts, &cErr)
+	cDoc := C.yyaml_read(cStr, cLen, nil, &cErr)
 	if cDoc == nil {
-		return nil, &Error{
-			Pos:    int(cErr.pos),
-			Line:   int(cErr.line),
-			Column: int(cErr.column),
-			Msg:    C.GoString(&cErr.msg[0]),
-		}
+		return nil, errors.New(C.GoString(&cErr.msg[0]))
 	}
 
 	doc := &Document{doc: cDoc}
@@ -95,17 +83,13 @@ func Read(data []byte, opts *ReadOptions) (*Document, error) {
 	return doc, nil
 }
 
-// ReadString parses YAML text from a string into a document tree.
-func ReadString(str string, opts *ReadOptions) (*Document, error) {
-	return Read([]byte(str), opts)
-}
-
-// NewDocument creates an empty document for manual construction.
-func NewDocument() *Document {
+// fromInterface creates Document from Go interface{}.
+func fromInterface(v interface{}) *Document {
 	cDoc := C.yyaml_doc_new()
 	if cDoc == nil {
 		return nil
 	}
+	
 	doc := &Document{doc: cDoc}
 	runtime.SetFinalizer(doc, func(d *Document) {
 		if d.doc != nil {
@@ -113,7 +97,59 @@ func NewDocument() *Document {
 			d.doc = nil
 		}
 	})
+	
+	rootIdx := encodeValue(doc, v)
+	if rootIdx < 0 || !doc.SetRoot(rootIdx) {
+		doc.Close()
+		return nil
+	}
+	
 	return doc
+}
+
+// encodeValue converts Go value to yyaml node index.
+func encodeValue(doc *Document, v interface{}) int {
+	switch val := v.(type) {
+	case nil:
+		return doc.addNull()
+	case bool:
+		return doc.addBool(val)
+	case int:
+		return doc.addInt(int64(val))
+	case int64:
+		return doc.addInt(val)
+	case float64:
+		return doc.addDouble(val)
+	case string:
+		return doc.addString(val)
+	case []interface{}:
+		seqIdx := doc.addSequence()
+		if seqIdx < 0 {
+			return -1
+		}
+		for _, elem := range val {
+			elemIdx := encodeValue(doc, elem)
+			if elemIdx < 0 || !doc.seqAppend(seqIdx, elemIdx) {
+				return -1
+			}
+		}
+		return seqIdx
+	case map[string]interface{}:
+		mapIdx := doc.addMapping()
+		if mapIdx < 0 {
+			return -1
+		}
+		for key, elem := range val {
+			elemIdx := encodeValue(doc, elem)
+			if elemIdx < 0 || !doc.mapAppend(mapIdx, key, elemIdx) {
+				return -1
+			}
+		}
+		return mapIdx
+	default:
+		// Try to convert to string
+		return doc.addString(fmt.Sprintf("%v", val))
+	}
 }
 
 // Close frees the document resources.
@@ -125,8 +161,40 @@ func (d *Document) Close() {
 	runtime.SetFinalizer(d, nil)
 }
 
-// Root returns the root node of the document.
-func (d *Document) Root() *Node {
+// ToInterface converts Document to Go interface{}.
+func (d *Document) ToInterface() interface{} {
+	root := d.root()
+	if root == nil {
+		return nil
+	}
+	return root.toInterface()
+}
+
+// DumpString serializes Document to YAML string.
+func (d *Document) DumpString() (string, error) {
+	root := d.root()
+	if root == nil {
+		return "", errors.New("document has no root")
+	}
+	
+	var cOut *C.char
+	var cLen C.size_t
+	var cErr C.yyaml_err
+
+	success := C.yyaml_write(root.node, &cOut, &cLen, nil, &cErr)
+	if !success {
+		return "", errors.New(C.GoString(&cErr.msg[0]))
+	}
+	if cOut == nil {
+		return "", errors.New("yyaml_write returned nil output")
+	}
+
+	defer C.yyaml_free_string(cOut)
+	return C.GoStringN(cOut, C.int(cLen)), nil
+}
+
+// root returns the root node.
+func (d *Document) root() *Node {
 	cNode := C.yyaml_doc_get_root(d.doc)
 	if cNode == nil {
 		return nil
@@ -134,150 +202,106 @@ func (d *Document) Root() *Node {
 	return &Node{node: cNode, doc: d}
 }
 
-// NodeCount returns the total number of nodes in the document.
-func (d *Document) NodeCount() int {
-	return int(C.yyaml_doc_node_count(d.doc))
-}
-
-// GetNode returns a node by its index within the document.
-func (d *Document) GetNode(idx int) *Node {
-	cNode := C.yyaml_doc_get(d.doc, C.uint32_t(idx))
-	if cNode == nil {
+// toInterface converts Node to Go interface{}.
+func (n *Node) toInterface() interface{} {
+	if n == nil || n.node == nil {
 		return nil
 	}
-	return &Node{node: cNode, doc: d}
-}
-
-// Type returns the type of the node.
-func (n *Node) Type() Type {
-	return Type(n.node._type)
-}
-
-// IsScalar returns true if the node is a scalar type.
-func (n *Node) IsScalar() bool {
-	return bool(C.yyaml_is_scalar(n.node))
-}
-
-// IsContainer returns true if the node is a sequence or mapping.
-func (n *Node) IsContainer() bool {
-	return bool(C.yyaml_is_container(n.node))
-}
-
-// Bool returns the boolean value for a boolean node.
-func (n *Node) Bool() bool {
-	if n.Type() != TypeBool {
-		return false
-	}
-	return bool(n.node.val.boolean)
-}
-
-// Int returns the integer value for an integer node.
-func (n *Node) Int() int64 {
-	if n.Type() != TypeInt {
-		return 0
-	}
-	return int64(n.node.val.integer)
-}
-
-// Double returns the floating-point value for a double node.
-func (n *Node) Double() float64 {
-	if n.Type() != TypeDouble {
-		return 0
-	}
-	return float64(n.node.val.real)
-}
-
-// String returns the string value for a string node.
-func (n *Node) String() string {
-	if n.Type() != TypeString {
-		return ""
-	}
-	cBuf := C.yyaml_doc_get_scalar_buf(n.doc.doc)
-	if cBuf == nil {
-		return ""
-	}
-	offset := uintptr(unsafe.Pointer(cBuf)) + uintptr(n.node.val.str.ofs)
-	return C.GoString((*C.char)(unsafe.Pointer(offset)))
-}
-
-// MapGet looks up a mapping value by key.
-func (n *Node) MapGet(key string) *Node {
-	if n.Type() != TypeMapping {
+	
+	switch n.node._type {
+	case C.YYAML_NULL:
+		return nil
+	case C.YYAML_BOOL:
+		return bool(n.node.val.boolean)
+	case C.YYAML_INT:
+		return int64(n.node.val.integer)
+	case C.YYAML_DOUBLE:
+		return float64(n.node.val.real)
+	case C.YYAML_STRING:
+		cBuf := C.yyaml_doc_get_scalar_buf(n.doc.doc)
+		if cBuf == nil {
+			return ""
+		}
+		offset := uintptr(unsafe.Pointer(cBuf)) + uintptr(n.node.val.str.ofs)
+		return C.GoString((*C.char)(unsafe.Pointer(offset)))
+	case C.YYAML_SEQUENCE:
+		length := int(C.yyaml_seq_len(n.node))
+		result := make([]interface{}, length)
+		for i := 0; i < length; i++ {
+			cNode := C.yyaml_seq_get(n.node, C.size_t(i))
+			if cNode == nil {
+				result[i] = nil
+			} else {
+				result[i] = (&Node{node: cNode, doc: n.doc}).toInterface()
+			}
+		}
+		return result
+	case C.YYAML_MAPPING:
+		result := make(map[string]interface{})
+		cBuf := C.yyaml_doc_get_scalar_buf(n.doc.doc)
+		if cBuf == nil {
+			return result
+		}
+		
+		child := n.node.child
+		for child != C.UINT32_MAX {
+			cChild := C.yyaml_doc_get(n.doc.doc, child)
+			if cChild != nil {
+				key := C.GoStringN((*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cBuf))+uintptr(cChild.extra))), C.int(cChild.flags))
+				result[key] = (&Node{node: cChild, doc: n.doc}).toInterface()
+			}
+			if cChild == nil || cChild.next == C.UINT32_MAX {
+				break
+			}
+			child = cChild.next
+		}
+		return result
+	default:
 		return nil
 	}
+}
+
+// Helper methods for Document
+func (d *Document) addNull() int {
+	return int(C.yyaml_doc_add_null(d.doc))
+}
+
+func (d *Document) addBool(value bool) int {
+	return int(C.yyaml_doc_add_bool(d.doc, C.bool(value)))
+}
+
+func (d *Document) addInt(value int64) int {
+	return int(C.yyaml_doc_add_int(d.doc, C.int64_t(value)))
+}
+
+func (d *Document) addDouble(value float64) int {
+	return int(C.yyaml_doc_add_double(d.doc, C.double(value)))
+}
+
+func (d *Document) addString(str string) int {
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+	return int(C.yyaml_doc_add_string(d.doc, cStr, C.size_t(len(str))))
+}
+
+func (d *Document) addSequence() int {
+	return int(C.yyaml_doc_add_sequence(d.doc))
+}
+
+func (d *Document) addMapping() int {
+	return int(C.yyaml_doc_add_mapping(d.doc))
+}
+
+func (d *Document) SetRoot(idx int) bool {
+	return bool(C.yyaml_doc_set_root(d.doc, C.uint32_t(idx)))
+}
+
+func (d *Document) seqAppend(seqIdx, childIdx int) bool {
+	return bool(C.yyaml_doc_seq_append(d.doc, C.uint32_t(seqIdx), C.uint32_t(childIdx)))
+}
+
+func (d *Document) mapAppend(mapIdx int, key string, valIdx int) bool {
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
-	cNode := C.yyaml_map_get(n.node, cKey)
-	if cNode == nil {
-		return nil
-	}
-	return &Node{node: cNode, doc: n.doc}
-}
-
-// SeqGet retrieves a sequence element by index.
-func (n *Node) SeqGet(index int) *Node {
-	if n.Type() != TypeSequence {
-		return nil
-	}
-	cNode := C.yyaml_seq_get(n.node, C.size_t(index))
-	if cNode == nil {
-		return nil
-	}
-	return &Node{node: cNode, doc: n.doc}
-}
-
-// SeqLen returns the number of elements in a sequence.
-func (n *Node) SeqLen() int {
-	if n.Type() != TypeSequence {
-		return 0
-	}
-	return int(C.yyaml_seq_len(n.node))
-}
-
-// MapLen returns the number of members in a mapping.
-func (n *Node) MapLen() int {
-	if n.Type() != TypeMapping {
-		return 0
-	}
-	return int(C.yyaml_map_len(n.node))
-}
-
-// Write serializes a node tree to YAML text.
-func Write(root *Node, opts *WriteOptions) ([]byte, error) {
-	var cOpts *C.yyaml_write_opts
-	if opts != nil {
-		cOpts = &C.yyaml_write_opts{
-			indent:        C.size_t(opts.Indent),
-			final_newline: C.bool(opts.FinalNewline),
-		}
-	}
-
-	var cOut *C.char
-	var cLen C.size_t
-	var cErr C.yyaml_err
-
-	success := C.yyaml_write(root.node, &cOut, &cLen, cOpts, &cErr)
-	if !success {
-		return nil, &Error{
-			Pos:    int(cErr.pos),
-			Line:   int(cErr.line),
-			Column: int(cErr.column),
-			Msg:    C.GoString(&cErr.msg[0]),
-		}
-	}
-	if cOut == nil {
-		return nil, errors.New("yyaml_write returned nil output")
-	}
-
-	defer C.yyaml_free_string(cOut)
-	return C.GoBytes(unsafe.Pointer(cOut), C.int(cLen)), nil
-}
-
-// WriteString serializes a node tree to a YAML string.
-func WriteString(root *Node, opts *WriteOptions) (string, error) {
-	data, err := Write(root, opts)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return bool(C.yyaml_doc_map_append(d.doc, C.uint32_t(mapIdx), cKey, C.size_t(len(key)), C.uint32_t(valIdx)))
 }
