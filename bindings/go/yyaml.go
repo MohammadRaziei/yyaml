@@ -19,7 +19,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"io"
 	"runtime"
 	"unsafe"
 )
@@ -35,43 +34,43 @@ type Node struct {
 	doc  *Document
 }
 
-// Loads parses YAML string into Go interface{}.
-func Loads(str string) (interface{}, error) {
-	doc, err := parseString(str)
-	if err != nil {
-		return nil, err
-	}
-	defer doc.Close()
-	return doc.ToInterface(), nil
-}
-
-// Load parses YAML from io.Reader into Go interface{}.
-func Load(r io.Reader) (interface{}, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	return Loads(string(data))
-}
-
-// Dumps converts Go value to YAML string.
-func Dumps(v interface{}) (string, error) {
-	doc := fromInterface(v)
-	if doc == nil {
-		return "", errors.New("failed to create document")
-	}
-	defer doc.Close()
-	return doc.DumpString()
-}
-
-// Dump converts Go value to YAML and writes to io.Writer.
-func Dump(w io.Writer, v interface{}) error {
-	data, err := Dumps(v)
+// Unmarshal parses YAML data into Go value.
+// It follows the standard Go naming convention similar to json.Unmarshal.
+// The destination v must be a pointer to interface{} (e.g., var data interface{}).
+func Unmarshal(data []byte, v interface{}) error {
+	doc, err := parseString(string(data))
 	if err != nil {
 		return err
 	}
-	_, err = w.Write([]byte(data))
-	return err
+	defer doc.Close()
+	
+	result := doc.ToInterface()
+	
+	// If v is *interface{}, assign the result
+	if ptr, ok := v.(*interface{}); ok {
+		*ptr = result
+		return nil
+	}
+	
+	// For now, we only support unmarshaling into interface{}
+	// In the future, we could add support for struct unmarshaling
+	return errors.New("yyaml.Unmarshal currently only supports *interface{} as destination")
+}
+
+// Marshal converts Go value to YAML data.
+// It follows the standard Go naming convention similar to json.Marshal.
+func Marshal(v interface{}) ([]byte, error) {
+	doc := fromInterface(v)
+	if doc == nil {
+		return nil, errors.New("failed to create document")
+	}
+	defer doc.Close()
+	
+	str, err := doc.DumpString()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(str), nil
 }
 
 // parseString parses YAML string into Document.

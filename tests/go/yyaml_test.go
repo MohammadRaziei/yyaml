@@ -7,15 +7,17 @@ import (
 	yyaml "github.com/mohammadraziei/yyaml/bindings/go"
 )
 
-func TestLoadsSimple(t *testing.T) {
+func TestUnmarshalSimple(t *testing.T) {
 	yamlStr := `name: John
 age: 30
 active: true
 `
 	
-	result, err := yyaml.Loads(yamlStr)
+	// Test Unmarshal API
+	var result interface{}
+	err := yyaml.Unmarshal([]byte(yamlStr), &result)
 	if err != nil {
-		t.Fatalf("Loads failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	
 	m, ok := result.(map[string]interface{})
@@ -37,15 +39,17 @@ active: true
 	}
 }
 
-func TestLoadsArray(t *testing.T) {
+func TestUnmarshalArray(t *testing.T) {
 	yamlStr := `- apple
 - banana
 - cherry
 `
 	
-	result, err := yyaml.Loads(yamlStr)
+	// Test Unmarshal API
+	var result interface{}
+	err := yyaml.Unmarshal([]byte(yamlStr), &result)
 	if err != nil {
-		t.Fatalf("Loads failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	
 	arr, ok := result.([]interface{})
@@ -62,24 +66,26 @@ func TestLoadsArray(t *testing.T) {
 	}
 }
 
-func TestDumpsSimple(t *testing.T) {
+func TestMarshalSimple(t *testing.T) {
 	data := map[string]interface{}{
 		"name":   "Alice",
 		"age":    25,
 		"active": false,
 	}
 	
-	output, err := yyaml.Dumps(data)
+	// Test Marshal API
+	output, err := yyaml.Marshal(data)
 	if err != nil {
-		t.Fatalf("Dumps failed: %v", err)
+		t.Fatalf("Marshal failed: %v", err)
 	}
 	
-	if !strings.Contains(output, "name: Alice") {
-		t.Errorf("Expected output to contain 'name: Alice', got:\n%s", output)
+	outputStr := string(output)
+	if !strings.Contains(outputStr, "name: Alice") {
+		t.Errorf("Expected output to contain 'name: Alice', got:\n%s", outputStr)
 	}
 	
-	if !strings.Contains(output, "age: 25") {
-		t.Errorf("Expected output to contain 'age: 25', got:\n%s", output)
+	if !strings.Contains(outputStr, "age: 25") {
+		t.Errorf("Expected output to contain 'age: 25', got:\n%s", outputStr)
 	}
 }
 
@@ -96,16 +102,17 @@ func TestRoundtrip(t *testing.T) {
 		},
 	}
 	
-	// Convert to YAML
-	yamlStr, err := yyaml.Dumps(original)
+	// Convert to YAML using Marshal
+	yamlData, err := yyaml.Marshal(original)
 	if err != nil {
-		t.Fatalf("Dumps failed: %v", err)
+		t.Fatalf("Marshal failed: %v", err)
 	}
 	
-	// Parse back
-	result, err := yyaml.Loads(yamlStr)
+	// Parse back using Unmarshal
+	var result interface{}
+	err = yyaml.Unmarshal(yamlData, &result)
 	if err != nil {
-		t.Fatalf("Loads failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	
 	// Verify structure
@@ -139,9 +146,10 @@ func TestRoundtrip(t *testing.T) {
 
 func TestEmptyDocument(t *testing.T) {
 	// Empty document should return nil
-	result, err := yyaml.Loads("")
+	var result interface{}
+	err := yyaml.Unmarshal([]byte(""), &result)
 	if err != nil {
-		t.Fatalf("Loads empty failed: %v", err)
+		t.Fatalf("Unmarshal empty failed: %v", err)
 	}
 	
 	if result != nil {
@@ -160,9 +168,10 @@ settings:
   notifications: true
 `
 	
-	result, err := yyaml.Loads(yamlStr)
+	var result interface{}
+	err := yyaml.Unmarshal([]byte(yamlStr), &result)
 	if err != nil {
-		t.Fatalf("Loads failed: %v", err)
+		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	
 	m, ok := result.(map[string]interface{})
