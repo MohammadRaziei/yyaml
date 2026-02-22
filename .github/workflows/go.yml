@@ -1,0 +1,64 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'bindings/go/**'
+      - 'tests/go/**'
+      - 'yyaml/**'
+      - '.github/workflows/go.yml'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'bindings/go/**'
+      - 'tests/go/**'
+      - 'yyaml/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        go-version: ['1.21', '1.22']
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc
+    
+    - name: Verify Go installation
+      run: |
+        go version
+        gcc --version
+    
+    - name: Build Go package
+      run: |
+        cd bindings/go
+        go build -v .
+    
+    - name: Run tests
+      run: |
+        cd tests/go
+        go test -v ./...
+    
+    - name: Run vet
+      run: |
+        cd bindings/go
+        go vet ./...
+    
+    - name: Check formatting
+      run: |
+        cd bindings/go
+        gofmt -d -e -s .
