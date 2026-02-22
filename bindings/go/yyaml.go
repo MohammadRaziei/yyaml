@@ -1,7 +1,20 @@
 // Package yyaml provides Go bindings for the yyaml C library.
 package yyaml
 
-// #include "clib.go"
+//go:build !yyaml_no_cgo
+
+/*
+#cgo CFLAGS: -I${SRCDIR}/../../yyaml
+
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <limits.h>
+
+// Include the actual C source files
+#include "../../yyaml/yyaml.h"
+#include "../../yyaml/yyaml.c"
+*/
 import "C"
 import (
 	"errors"
@@ -99,7 +112,7 @@ func fromInterface(v interface{}) *Document {
 	})
 	
 	rootIdx := encodeValue(doc, v)
-	if rootIdx < 0 || !doc.SetRoot(rootIdx) {
+	if rootIdx == ^uint32(0) || !doc.SetRoot(rootIdx) {
 		doc.Close()
 		return nil
 	}
@@ -108,7 +121,7 @@ func fromInterface(v interface{}) *Document {
 }
 
 // encodeValue converts Go value to yyaml node index.
-func encodeValue(doc *Document, v interface{}) int {
+func encodeValue(doc *Document, v interface{}) uint32 {
 	switch val := v.(type) {
 	case nil:
 		return doc.addNull()
@@ -124,25 +137,25 @@ func encodeValue(doc *Document, v interface{}) int {
 		return doc.addString(val)
 	case []interface{}:
 		seqIdx := doc.addSequence()
-		if seqIdx < 0 {
-			return -1
+		if seqIdx == ^uint32(0) {
+			return ^uint32(0)
 		}
 		for _, elem := range val {
 			elemIdx := encodeValue(doc, elem)
-			if elemIdx < 0 || !doc.seqAppend(seqIdx, elemIdx) {
-				return -1
+			if elemIdx == ^uint32(0) || !doc.seqAppend(seqIdx, elemIdx) {
+				return ^uint32(0)
 			}
 		}
 		return seqIdx
 	case map[string]interface{}:
 		mapIdx := doc.addMapping()
-		if mapIdx < 0 {
-			return -1
+		if mapIdx == ^uint32(0) {
+			return ^uint32(0)
 		}
 		for key, elem := range val {
 			elemIdx := encodeValue(doc, elem)
-			if elemIdx < 0 || !doc.mapAppend(mapIdx, key, elemIdx) {
-				return -1
+			if elemIdx == ^uint32(0) || !doc.mapAppend(mapIdx, key, elemIdx) {
+				return ^uint32(0)
 			}
 		}
 		return mapIdx
@@ -212,18 +225,22 @@ func (n *Node) toInterface() interface{} {
 	case C.YYAML_NULL:
 		return nil
 	case C.YYAML_BOOL:
-		return bool(n.node.val.boolean)
+		// Access union field through unsafe pointer
+		return *(*bool)(unsafe.Pointer(&n.node.val[0]))
 	case C.YYAML_INT:
-		return int64(n.node.val.integer)
+		return *(*int64)(unsafe.Pointer(&n.node.val[0]))
 	case C.YYAML_DOUBLE:
-		return float64(n.node.val.real)
+		return *(*float64)(unsafe.Pointer(&n.node.val[0]))
 	case C.YYAML_STRING:
 		cBuf := C.yyaml_doc_get_scalar_buf(n.doc.doc)
 		if cBuf == nil {
 			return ""
 		}
-		offset := uintptr(unsafe.Pointer(cBuf)) + uintptr(n.node.val.str.ofs)
-		return C.GoString((*C.char)(unsafe.Pointer(offset)))
+		// Access string offset and length from the union
+		ofs := *(*uint32)(unsafe.Pointer(&n.node.val[0]))
+		length := *(*uint32)(unsafe.Pointer(&n.node.val[4]))
+		offset := uintptr(unsafe.Pointer(cBuf)) + uintptr(ofs)
+		return C.GoStringN((*C.char)(unsafe.Pointer(offset)), C.int(length))
 	case C.YYAML_SEQUENCE:
 		length := int(C.yyaml_seq_len(n.node))
 		result := make([]interface{}, length)
@@ -243,17 +260,34 @@ func (n *Node) toInterface() interface{} {
 			return result
 		}
 		
-		child := n.node.child
-		for child != C.UINT32_MAX {
-			cChild := C.yyaml_doc_get(n.doc.doc, child)
+		// Get the first child
+		if n.node.child == ^C.uint32_t(0) {
+			return result
+		}
+		
+		// Iterate through mapping children
+		childIdx := n.node.child
+		for childIdx != ^C.uint32_t(0) {
+			cChild := C.yyaml_doc_get(n.doc.doc, childIdx)
 			if cChild != nil {
-				key := C.GoStringN((*C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(cBuf))+uintptr(cChild.extra))), C.int(cChild.flags))
-				result[key] = (&Node{node: cChild, doc: n.doc}).toInterface()
-			}
-			if cChild == nil || cChild.next == C.UINT32_MAX {
+				// Get the key from the child's extra field
+				keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cChild.extra)
+				keyLen := cChild.flags
+				key := C.GoStringN((*C.char)(unsafe.Pointer(keyOffset)), C.int(keyLen))
+				
+				// Get the value node (next sibling)
+				if cChild.next != ^C.uint32_t(0) {
+					cValue := C.yyaml_doc_get(n.doc.doc, cChild.next)
+					if cValue != nil {
+						result[key] = (&Node{node: cValue, doc: n.doc}).toInterface()
+					}
+					childIdx = cValue.next
+				} else {
+					break
+				}
+			} else {
 				break
 			}
-			child = cChild.next
 		}
 		return result
 	default:
@@ -262,45 +296,45 @@ func (n *Node) toInterface() interface{} {
 }
 
 // Helper methods for Document
-func (d *Document) addNull() int {
-	return int(C.yyaml_doc_add_null(d.doc))
+func (d *Document) addNull() uint32 {
+	return uint32(C.yyaml_doc_add_null(d.doc))
 }
 
-func (d *Document) addBool(value bool) int {
-	return int(C.yyaml_doc_add_bool(d.doc, C.bool(value)))
+func (d *Document) addBool(value bool) uint32 {
+	return uint32(C.yyaml_doc_add_bool(d.doc, C.bool(value)))
 }
 
-func (d *Document) addInt(value int64) int {
-	return int(C.yyaml_doc_add_int(d.doc, C.int64_t(value)))
+func (d *Document) addInt(value int64) uint32 {
+	return uint32(C.yyaml_doc_add_int(d.doc, C.int64_t(value)))
 }
 
-func (d *Document) addDouble(value float64) int {
-	return int(C.yyaml_doc_add_double(d.doc, C.double(value)))
+func (d *Document) addDouble(value float64) uint32 {
+	return uint32(C.yyaml_doc_add_double(d.doc, C.double(value)))
 }
 
-func (d *Document) addString(str string) int {
+func (d *Document) addString(str string) uint32 {
 	cStr := C.CString(str)
 	defer C.free(unsafe.Pointer(cStr))
-	return int(C.yyaml_doc_add_string(d.doc, cStr, C.size_t(len(str))))
+	return uint32(C.yyaml_doc_add_string(d.doc, cStr, C.size_t(len(str))))
 }
 
-func (d *Document) addSequence() int {
-	return int(C.yyaml_doc_add_sequence(d.doc))
+func (d *Document) addSequence() uint32 {
+	return uint32(C.yyaml_doc_add_sequence(d.doc))
 }
 
-func (d *Document) addMapping() int {
-	return int(C.yyaml_doc_add_mapping(d.doc))
+func (d *Document) addMapping() uint32 {
+	return uint32(C.yyaml_doc_add_mapping(d.doc))
 }
 
-func (d *Document) SetRoot(idx int) bool {
+func (d *Document) SetRoot(idx uint32) bool {
 	return bool(C.yyaml_doc_set_root(d.doc, C.uint32_t(idx)))
 }
 
-func (d *Document) seqAppend(seqIdx, childIdx int) bool {
+func (d *Document) seqAppend(seqIdx, childIdx uint32) bool {
 	return bool(C.yyaml_doc_seq_append(d.doc, C.uint32_t(seqIdx), C.uint32_t(childIdx)))
 }
 
-func (d *Document) mapAppend(mapIdx int, key string, valIdx int) bool {
+func (d *Document) mapAppend(mapIdx uint32, key string, valIdx uint32) bool {
 	cKey := C.CString(key)
 	defer C.free(unsafe.Pointer(cKey))
 	return bool(C.yyaml_doc_map_append(d.doc, C.uint32_t(mapIdx), cKey, C.size_t(len(key)), C.uint32_t(valIdx)))
