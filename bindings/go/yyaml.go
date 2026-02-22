@@ -239,8 +239,10 @@ func (n *Node) toInterface() interface{} {
 		// Access string offset and length from the union
 		ofs := *(*uint32)(unsafe.Pointer(&n.node.val[0]))
 		length := *(*uint32)(unsafe.Pointer(&n.node.val[4]))
-		offset := uintptr(unsafe.Pointer(cBuf)) + uintptr(ofs)
-		return C.GoStringN((*C.char)(unsafe.Pointer(offset)), C.int(length))
+		// Convert C buffer to Go slice for safe access
+		bufPtr := unsafe.Pointer(cBuf)
+		strPtr := (*C.char)(unsafe.Pointer(uintptr(bufPtr) + uintptr(ofs)))
+		return C.GoStringN(strPtr, C.int(length))
 	case C.YYAML_SEQUENCE:
 		length := int(C.yyaml_seq_len(n.node))
 		result := make([]interface{}, length)
@@ -269,9 +271,10 @@ func (n *Node) toInterface() interface{} {
 			}
 			
 			// Get the key from the child's extra and flags fields
-			keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cChild.extra)
+			bufPtr := unsafe.Pointer(cBuf)
+			keyPtr := (*C.char)(unsafe.Pointer(uintptr(bufPtr) + uintptr(cChild.extra)))
 			keyLen := cChild.flags
-			key := C.GoStringN((*C.char)(unsafe.Pointer(keyOffset)), C.int(keyLen))
+			key := C.GoStringN(keyPtr, C.int(keyLen))
 			
 			// The child node itself is the value
 			result[key] = (&Node{node: cChild, doc: n.doc}).toInterface()
