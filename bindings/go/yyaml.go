@@ -1,7 +1,7 @@
+//go:build !yyaml_no_cgo
+
 // Package yyaml provides Go bindings for the yyaml C library.
 package yyaml
-
-//go:build !yyaml_no_cgo
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../yyaml
@@ -265,26 +265,34 @@ func (n *Node) toInterface() interface{} {
 			return result
 		}
 		
-		// Iterate through mapping children
-		childIdx := n.node.child
-		for childIdx != ^C.uint32_t(0) {
-			cChild := C.yyaml_doc_get(n.doc.doc, childIdx)
-			if cChild != nil {
-				// Get the key from the child's extra field
-				keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cChild.extra)
-				keyLen := cChild.flags
-				key := C.GoStringN((*C.char)(unsafe.Pointer(keyOffset)), C.int(keyLen))
-				
-				// Get the value node (next sibling)
-				if cChild.next != ^C.uint32_t(0) {
-					cValue := C.yyaml_doc_get(n.doc.doc, cChild.next)
-					if cValue != nil {
-						result[key] = (&Node{node: cValue, doc: n.doc}).toInterface()
-					}
-					childIdx = cValue.next
-				} else {
-					break
-				}
+		// Iterate through mapping children (key-value pairs)
+		// In yyaml, mapping children are stored as alternating key-value pairs
+		keyIdx := n.node.child
+		for keyIdx != ^C.uint32_t(0) {
+			cKey := C.yyaml_doc_get(n.doc.doc, keyIdx)
+			if cKey == nil {
+				break
+			}
+			
+			// Get the key string
+			keyOffset := uintptr(unsafe.Pointer(cBuf)) + uintptr(cKey.extra)
+			keyLen := cKey.flags
+			key := C.GoStringN((*C.char)(unsafe.Pointer(keyOffset)), C.int(keyLen))
+			
+			// Get the value (next sibling)
+			valIdx := cKey.next
+			if valIdx == ^C.uint32_t(0) {
+				break
+			}
+			
+			cValue := C.yyaml_doc_get(n.doc.doc, valIdx)
+			if cValue != nil {
+				result[key] = (&Node{node: cValue, doc: n.doc}).toInterface()
+			}
+			
+			// Move to next key-value pair
+			if cValue != nil && cValue.next != ^C.uint32_t(0) {
+				keyIdx = cValue.next
 			} else {
 				break
 			}
