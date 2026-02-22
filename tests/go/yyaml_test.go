@@ -27,8 +27,8 @@ active: true
 		t.Errorf("Expected name=John, got %v", m["name"])
 	}
 	
-	// Note: yyaml parses numbers as float64
-	if m["age"] != float64(30) {
+	// yyaml distinguishes between integers and floats
+	if m["age"] != int64(30) {
 		t.Errorf("Expected age=30, got %v", m["age"])
 	}
 	
@@ -118,7 +118,8 @@ func TestRoundtrip(t *testing.T) {
 		t.Errorf("Expected string=hello, got %v", m["string"])
 	}
 	
-	if m["number"] != float64(42) {
+	// 42 is an integer, should be parsed as int64
+	if m["number"] != int64(42) {
 		t.Errorf("Expected number=42, got %v", m["number"])
 	}
 	
