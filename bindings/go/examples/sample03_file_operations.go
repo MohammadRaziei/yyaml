@@ -163,23 +163,29 @@ func main() {
 		"environment": "development",  // New key
 	}
 	
-	// Simple merge function
-	mergeMaps := func(dest, src map[string]interface{}) {
-		for key, value := range src {
-			if destMap, ok := dest[key].(map[string]interface{}); ok {
+	// Merge configurations
+	mergedConfig := make(map[string]interface{})
+	
+	// Simple merge implementation
+	for key, value := range baseConfig {
+		mergedConfig[key] = value
+	}
+	
+	for key, value := range envConfig {
+		if existing, ok := mergedConfig[key]; ok {
+			// If both are maps, merge them
+			if destMap, ok := existing.(map[string]interface{}); ok {
 				if srcMap, ok := value.(map[string]interface{}); ok {
-					mergeMaps(destMap, srcMap)
+					// Merge nested maps
+					for k, v := range srcMap {
+						destMap[k] = v
+					}
 					continue
 				}
 			}
-			dest[key] = value
 		}
+		mergedConfig[key] = value
 	}
-	
-	// Merge configurations
-	mergedConfig := make(map[string]interface{})
-	mergeMaps(mergedConfig, baseConfig)
-	mergeMaps(mergedConfig, envConfig)
 	
 	mergedYAML, _ := yyaml.Dumps(mergedConfig)
 	fmt.Println("   Merged configuration:")

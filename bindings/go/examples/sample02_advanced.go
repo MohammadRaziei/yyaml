@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	
 	yyaml "github.com/mohammadraziei/yyaml/bindings/go"
 )
