@@ -31,6 +31,9 @@ go run sample03_file_operations.go
 
 # Run JSON to YAML conversion example
 go run sample04_json_to_yaml.go
+
+# Run YAML to JSON conversion example
+go run sample05_yaml_to_json.go
 ```
 
 ## Example Overview
@@ -88,6 +91,21 @@ Demonstrates interoperability between JSON and YAML:
 - Processes multiple JSON examples in a list
 - Shows both compact and pretty JSON output
 - Demonstrates data structure preservation
+
+### 5. `sample05_yaml_to_json.go` - YAML to JSON Conversion
+Demonstrates the reverse conversion process:
+- Parsing YAML strings with comments and formatting
+- Converting YAML to JSON with different formatting options
+- Roundtrip conversion (YAML -> JSON -> YAML)
+- Handling of YAML comments (and their loss during parsing)
+- Comparison of YAML and JSON representations
+
+**Key Features:**
+- Shows YAML parsing with complex structures
+- Demonstrates comment handling in YAML
+- Provides side-by-side comparison of formats
+- Includes roundtrip validation
+- Uses independent example counter system
 
 ## Common Patterns
 
