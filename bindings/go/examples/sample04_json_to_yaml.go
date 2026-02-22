@@ -28,22 +28,17 @@ func main() {
 	if err := json.Unmarshal([]byte(jsonStr1), &data1); err != nil {
 		log.Printf("ERROR: Failed to parse JSON: %v", err)
 	} else {
-		yamlOutput1, err := yyaml.Dumps(data1)
+		yamlOutput1, err := yyaml.Marshal(data1)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT ---")
-			fmt.Println(yamlOutput1)
+			fmt.Println(string(yamlOutput1))
 			fmt.Println("--- END YAML ---")
 			
 			jsonPretty1, _ := json.MarshalIndent(data1, "", "    ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 			fmt.Println(string(jsonPretty1))
-			fmt.Println("--- END JSON ---")
-			
-			jsonCompact1, _ := json.Marshal(data1)
-			fmt.Println("\n--- JSON OUTPUT (compact) ---")
-			fmt.Printf("%s\n", string(jsonCompact1))
 			fmt.Println("--- END JSON ---")
 			
 			jsonPretty2_1, _ := json.MarshalIndent(data1, "", "  ")
@@ -65,22 +60,17 @@ func main() {
 	if err := json.Unmarshal([]byte(jsonStr2), &data2); err != nil {
 		log.Printf("ERROR: Failed to parse JSON: %v", err)
 	} else {
-		yamlOutput2, err := yyaml.Dumps(data2)
+		yamlOutput2, err := yyaml.Marshal(data2)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT ---")
-			fmt.Println(yamlOutput2)
+			fmt.Println(string(yamlOutput2))
 			fmt.Println("--- END YAML ---")
 			
 			jsonPretty2, _ := json.MarshalIndent(data2, "", "    ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 			fmt.Println(string(jsonPretty2))
-			fmt.Println("--- END JSON ---")
-			
-			jsonCompact2, _ := json.Marshal(data2)
-			fmt.Println("\n--- JSON OUTPUT (compact) ---")
-			fmt.Printf("%s\n", string(jsonCompact2))
 			fmt.Println("--- END JSON ---")
 			
 			jsonPretty2_2, _ := json.MarshalIndent(data2, "", "  ")
@@ -102,22 +92,17 @@ func main() {
 	if err := json.Unmarshal([]byte(jsonStr3), &data3); err != nil {
 		log.Printf("ERROR: Failed to parse JSON: %v", err)
 	} else {
-		yamlOutput3, err := yyaml.Dumps(data3)
+		yamlOutput3, err := yyaml.Marshal(data3)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT ---")
-			fmt.Println(yamlOutput3)
+			fmt.Println(string(yamlOutput3))
 			fmt.Println("--- END YAML ---")
 			
 			jsonPretty3, _ := json.MarshalIndent(data3, "", "    ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 			fmt.Println(string(jsonPretty3))
-			fmt.Println("--- END JSON ---")
-			
-			jsonCompact3, _ := json.Marshal(data3)
-			fmt.Println("\n--- JSON OUTPUT (compact) ---")
-			fmt.Printf("%s\n", string(jsonCompact3))
 			fmt.Println("--- END JSON ---")
 			
 			jsonPretty2_3, _ := json.MarshalIndent(data3, "", "  ")
@@ -139,22 +124,17 @@ func main() {
 	if err := json.Unmarshal([]byte(jsonStr4), &data4); err != nil {
 		log.Printf("ERROR: Failed to parse JSON: %v", err)
 	} else {
-		yamlOutput4, err := yyaml.Dumps(data4)
+		yamlOutput4, err := yyaml.Marshal(data4)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT ---")
-			fmt.Println(yamlOutput4)
+			fmt.Println(string(yamlOutput4))
 			fmt.Println("--- END YAML ---")
 			
 			jsonPretty4, _ := json.MarshalIndent(data4, "", "    ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 			fmt.Println(string(jsonPretty4))
-			fmt.Println("--- END JSON ---")
-			
-			jsonCompact4, _ := json.Marshal(data4)
-			fmt.Println("\n--- JSON OUTPUT (compact) ---")
-			fmt.Printf("%s\n", string(jsonCompact4))
 			fmt.Println("--- END JSON ---")
 			
 			jsonPretty2_4, _ := json.MarshalIndent(data4, "", "  ")
@@ -176,36 +156,25 @@ func main() {
 	if err := json.Unmarshal([]byte(jsonStr5), &data5); err != nil {
 		log.Printf("ERROR: Failed to parse JSON: %v", err)
 	} else {
-		yamlOutput5, err := yyaml.Dumps(data5)
+		yamlOutput5, err := yyaml.Marshal(data5)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT ---")
-			fmt.Println(yamlOutput5)
+			fmt.Println(string(yamlOutput5))
 			fmt.Println("--- END YAML ---")
 			
 			jsonPretty5, _ := json.MarshalIndent(data5, "", "    ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 			fmt.Println(string(jsonPretty5))
 			fmt.Println("--- END JSON ---")
-			
-			jsonCompact5, _ := json.Marshal(data5)
-			fmt.Println("\n--- JSON OUTPUT (compact) ---")
-			fmt.Printf("%s\n", string(jsonCompact5))
-			fmt.Println("--- END JSON ---")
-			
+
 			jsonPretty2_5, _ := json.MarshalIndent(data5, "", "  ")
 			fmt.Println("\n--- JSON OUTPUT (beautified, 2-space) ---")
 			fmt.Println(string(jsonPretty2_5))
 			fmt.Println("--- END JSON ---")
 		}
 	}
-	
-	fmt.Println("\nObservations:")
-	fmt.Println("- YAML is more human-readable for configuration")
-	fmt.Println("- JSON is better for data interchange")
-	fmt.Println("- Both preserve the same data structure")
-	fmt.Println("- YAML supports comments (not shown in this conversion)")
 	
 	fmt.Println("\n=== JSON to YAML conversion example completed ===")
 }

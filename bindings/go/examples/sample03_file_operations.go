@@ -1,4 +1,4 @@
-// Example 3: File operations with YAML
+// Example 3: File operations with YAML using Marshal/Unmarshal API
 // To run: go run sample03_file_operations.go
 package main
 
@@ -12,9 +12,9 @@ import (
 )
 
 func main() {
-	fmt.Println("=== YAML File Operations Example ===\n")
+	fmt.Println("=== YAML File Operations Example with Marshal/Unmarshal ===\n")
 	
-	// Example 1: Create and write YAML to a file
+	// Example 1: Create and write YAML to a file using Marshal
 	fmt.Println("1. Creating and writing YAML to a file:")
 	
 	configData := map[string]interface{}{
@@ -43,8 +43,8 @@ func main() {
 		},
 	}
 	
-	// Convert to YAML
-	yamlContent, err := yyaml.Dumps(configData)
+	// Convert to YAML using Marshal
+	yamlContent, err := yyaml.Marshal(configData)
 	if err != nil {
 		log.Fatalf("Failed to generate YAML: %v", err)
 	}
@@ -56,16 +56,16 @@ func main() {
 	}
 	defer os.Remove(tmpFile.Name())
 	
-	if _, err := tmpFile.Write([]byte(yamlContent)); err != nil {
+	if _, err := tmpFile.Write(yamlContent); err != nil {
 		log.Fatalf("Failed to write to file: %v", err)
 	}
 	tmpFile.Close()
 	
 	fmt.Printf("   Created config file: %s\n", tmpFile.Name())
 	fmt.Println("   File content:")
-	fmt.Println(yamlContent)
+	fmt.Println(string(yamlContent))
 	
-	// Example 2: Read and parse YAML from a file
+	// Example 2: Read and parse YAML from a file using Unmarshal
 	fmt.Println("\n2. Reading and parsing YAML from a file:")
 	
 	// Read the file back
@@ -74,8 +74,9 @@ func main() {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 	
-	// Parse the YAML
-	parsedConfig, err := yyaml.Loads(string(fileContent))
+	// Parse the YAML using Unmarshal
+	var parsedConfig interface{}
+	err = yyaml.Unmarshal(fileContent, &parsedConfig)
 	if err != nil {
 		log.Fatalf("Failed to parse YAML from file: %v", err)
 	}
@@ -114,8 +115,8 @@ func main() {
 		features["rate_limiting"] = true
 	}
 	
-	// Convert back to YAML
-	updatedYAML, err := yyaml.Dumps(parsedConfig)
+	// Convert back to YAML using Marshal
+	updatedYAML, err := yyaml.Marshal(parsedConfig)
 	if err != nil {
 		log.Fatalf("Failed to generate updated YAML: %v", err)
 	}
@@ -127,14 +128,14 @@ func main() {
 	}
 	defer os.Remove(updatedFile.Name())
 	
-	if _, err := updatedFile.Write([]byte(updatedYAML)); err != nil {
+	if _, err := updatedFile.Write(updatedYAML); err != nil {
 		log.Fatalf("Failed to write updated file: %v", err)
 	}
 	updatedFile.Close()
 	
 	fmt.Printf("   Updated config saved to: %s\n", updatedFile.Name())
 	fmt.Println("   Updated file content:")
-	fmt.Println(updatedYAML)
+	fmt.Println(string(updatedYAML))
 	
 	// Example 4: Working with multiple configuration files
 	fmt.Println("\n4. Merging multiple configuration files:")
@@ -187,15 +188,16 @@ func main() {
 		mergedConfig[key] = value
 	}
 	
-	mergedYAML, _ := yyaml.Dumps(mergedConfig)
+	mergedYAML, _ := yyaml.Marshal(mergedConfig)
 	fmt.Println("   Merged configuration:")
-	fmt.Println(mergedYAML)
+	fmt.Println(string(mergedYAML))
 	
 	// Example 5: Validating configuration
 	fmt.Println("\n5. Configuration validation:")
 	
-	// Parse the merged config
-	validatedConfig, err := yyaml.Loads(mergedYAML)
+	// Parse the merged config using Unmarshal
+	var validatedConfig interface{}
+	err = yyaml.Unmarshal(mergedYAML, &validatedConfig)
 	if err != nil {
 		fmt.Printf("   Validation failed: %v\n", err)
 	} else {
@@ -243,9 +245,10 @@ address:
 	}
 	invalidFile.Close()
 	
-	// Try to parse the invalid file
+	// Try to parse the invalid file using Unmarshal
 	invalidFileContent, _ := ioutil.ReadFile(invalidFile.Name())
-	_, parseErr := yyaml.Loads(string(invalidFileContent))
+	var invalidResult interface{}
+	parseErr := yyaml.Unmarshal(invalidFileContent, &invalidResult)
 	
 	if parseErr != nil {
 		fmt.Printf("   Expected error when parsing invalid YAML: %v\n", parseErr)

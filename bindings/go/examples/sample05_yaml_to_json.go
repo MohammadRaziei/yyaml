@@ -34,17 +34,18 @@ address:
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr1)
 	
-	data1, err := yyaml.Loads(yamlStr1)
+	var data1 interface{}
+	err := yyaml.Unmarshal([]byte(yamlStr1), &data1)
 	if err != nil {
 		log.Printf("ERROR: Failed to parse YAML: %v", err)
 	} else {
 		// Dump back to YAML
-		yamlOutput1, err := yyaml.Dumps(data1)
+		yamlOutput1, err := yyaml.Marshal(data1)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert back to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT (re-generated) ---")
-			fmt.Println(yamlOutput1)
+			fmt.Println(string(yamlOutput1))
 			fmt.Println("--- END YAML ---")
 		}
 		
@@ -102,17 +103,18 @@ settings:
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr2)
 	
-	data2, err := yyaml.Loads(yamlStr2)
+	var data2 interface{}
+	err = yyaml.Unmarshal([]byte(yamlStr2), &data2)
 	if err != nil {
 		log.Printf("ERROR: Failed to parse YAML: %v", err)
 	} else {
 		// Dump back to YAML
-		yamlOutput2, err := yyaml.Dumps(data2)
+		yamlOutput2, err := yyaml.Marshal(data2)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert back to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT (re-generated) ---")
-			fmt.Println(yamlOutput2)
+			fmt.Println(string(yamlOutput2))
 			fmt.Println("--- END YAML ---")
 		}
 		
@@ -159,17 +161,18 @@ empty_object: {}`
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr3)
 	
-	data3, err := yyaml.Loads(yamlStr3)
+	var data3 interface{}
+	err = yyaml.Unmarshal([]byte(yamlStr3), &data3)
 	if err != nil {
 		log.Printf("ERROR: Failed to parse YAML: %v", err)
 	} else {
 		// Dump back to YAML
-		yamlOutput3, err := yyaml.Dumps(data3)
+		yamlOutput3, err := yyaml.Marshal(data3)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert back to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT (re-generated) ---")
-			fmt.Println(yamlOutput3)
+			fmt.Println(string(yamlOutput3))
 			fmt.Println("--- END YAML ---")
 		}
 		
@@ -233,7 +236,8 @@ logging:
 	fmt.Println("Original YAML input (with comments):")
 	fmt.Println(yamlStr4)
 	
-	data4, err := yyaml.Loads(yamlStr4)
+	var data4 interface{}
+	err = yyaml.Unmarshal([]byte(yamlStr4), &data4)
 	if err != nil {
 		log.Printf("ERROR: Failed to parse YAML: %v", err)
 	} else {
@@ -241,12 +245,12 @@ logging:
 		fmt.Println("\nNote: YAML comments are not preserved in parsed data structure")
 		
 		// Dump back to YAML (comments will be lost)
-		yamlOutput4, err := yyaml.Dumps(data4)
+		yamlOutput4, err := yyaml.Marshal(data4)
 		if err != nil {
 			log.Printf("ERROR: Failed to convert back to YAML: %v", err)
 		} else {
 			fmt.Println("\n--- YAML OUTPUT (re-generated, comments lost) ---")
-			fmt.Println(yamlOutput4)
+			fmt.Println(string(yamlOutput4))
 			fmt.Println("--- END YAML ---")
 		}
 		
@@ -254,11 +258,6 @@ logging:
 		jsonPretty4, _ := json.MarshalIndent(data4, "", "    ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 		fmt.Println(string(jsonPretty4))
-		fmt.Println("--- END JSON ---")
-		
-		jsonCompact4, _ := json.Marshal(data4)
-		fmt.Println("\n--- JSON OUTPUT (compact) ---")
-		fmt.Printf("%s\n", string(jsonCompact4))
 		fmt.Println("--- END JSON ---")
 	}
 	
@@ -282,7 +281,8 @@ logging:
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr5)
 	
-	data5, err := yyaml.Loads(yamlStr5)
+	var data5 interface{}
+	err = yyaml.Unmarshal([]byte(yamlStr5), &data5)
 	if err != nil {
 		log.Printf("ERROR: Failed to parse YAML: %v", err)
 	} else {
@@ -298,23 +298,16 @@ logging:
 			log.Printf("ERROR: Failed to parse JSON back: %v", err)
 		} else {
 			// Convert back to YAML
-			finalYAML, err := yyaml.Dumps(jsonData)
+			finalYAML, err := yyaml.Marshal(jsonData)
 			if err != nil {
 				log.Printf("ERROR: Failed to convert back to YAML: %v", err)
 			} else {
 				fmt.Println("\n--- Final YAML (after roundtrip) ---")
-				fmt.Println(finalYAML)
+				fmt.Println(string(finalYAML))
 				fmt.Println("--- END YAML ---")
 			}
 		}
 	}
-	
-	fmt.Println("\nObservations:")
-	fmt.Println("- YAML is more human-readable with comments and formatting")
-	fmt.Println("- JSON is more compact for data interchange")
-	fmt.Println("- Both formats preserve the same data structure")
-	fmt.Println("- YAML comments are lost during parsing")
-	fmt.Println("- Roundtrip conversion preserves data integrity")
 	
 	fmt.Println("\n=== YAML to JSON conversion example completed ===")
 }

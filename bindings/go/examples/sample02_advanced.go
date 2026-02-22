@@ -1,5 +1,5 @@
-// Advanced example showing error handling and file operations
-// To run: go run advanced_example.go
+// Advanced example showing error handling and complex operations with Marshal/Unmarshal API
+// To run: go run sample02_advanced.go
 package main
 
 import (
@@ -10,17 +10,18 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Advanced YAML Examples ===\n")
+	fmt.Println("=== Advanced YAML Examples with Marshal/Unmarshal ===\n")
 	
-	// Example 1: Error handling
+	// Example 1: Error handling with Unmarshal
 	fmt.Println("1. Error Handling Examples:")
 	
 	// Invalid YAML
 	invalidYAML := `name: John
 age: thirty  # This is not a number
 `
-	fmt.Println("   a) Parsing invalid YAML:")
-	_, err := yyaml.Loads(invalidYAML)
+	fmt.Println("   a) Parsing invalid YAML with Unmarshal:")
+	var invalidResult interface{}
+	err := yyaml.Unmarshal([]byte(invalidYAML), &invalidResult)
 	if err != nil {
 		fmt.Printf("      Error: %v\n", err)
 	} else {
@@ -31,15 +32,16 @@ age: thirty  # This is not a number
 	validYAML := `name: John
 age: 30
 `
-	fmt.Println("   b) Parsing valid YAML:")
-	result, err := yyaml.Loads(validYAML)
+	fmt.Println("   b) Parsing valid YAML with Unmarshal:")
+	var validResult interface{}
+	err = yyaml.Unmarshal([]byte(validYAML), &validResult)
 	if err != nil {
 		fmt.Printf("      Error: %v\n", err)
 	} else {
-		fmt.Printf("      Success: %v\n", result)
+		fmt.Printf("      Success: %v\n", validResult)
 	}
 	
-	// Example 2: Complex nested structures
+	// Example 2: Complex nested structures with Marshal
 	fmt.Println("\n2. Complex Nested Structures:")
 	
 	complexData := map[string]interface{}{
@@ -73,13 +75,13 @@ age: 30
 		},
 	}
 	
-	yamlOutput, err := yyaml.Dumps(complexData)
+	yamlOutput, err := yyaml.Marshal(complexData)
 	if err != nil {
 		log.Fatalf("Failed to generate YAML: %v", err)
 	}
 	
 	fmt.Println("   Generated YAML:")
-	fmt.Println(yamlOutput)
+	fmt.Println(string(yamlOutput))
 	
 	// Example 3: Working with different data types
 	fmt.Println("\n3. Data Type Preservation:")
@@ -93,8 +95,9 @@ age: 30
 		"array": []interface{}{1, "two", 3.0, true, nil},
 	}
 	
-	typeTestYAML, _ := yyaml.Dumps(typeTestData)
-	parsedBack, _ := yyaml.Loads(typeTestYAML)
+	typeTestYAML, _ := yyaml.Marshal(typeTestData)
+	var parsedBack interface{}
+	yyaml.Unmarshal(typeTestYAML, &parsedBack)
 	
 	fmt.Println("   Original types:")
 	for k, v := range typeTestData {
@@ -131,7 +134,8 @@ logging:
 `
 	
 	fmt.Println("   Parsing configuration file content:")
-	config, err := yyaml.Loads(configYAML)
+	var config interface{}
+	err = yyaml.Unmarshal([]byte(configYAML), &config)
 	if err != nil {
 		log.Fatalf("Failed to parse config: %v", err)
 	}
@@ -162,9 +166,9 @@ logging:
 		}
 	}
 	
-	updatedYAML, _ := yyaml.Dumps(config)
+	updatedYAML, _ := yyaml.Marshal(config)
 	fmt.Println("   Updated configuration:")
-	fmt.Println(updatedYAML)
+	fmt.Println(string(updatedYAML))
 	
 	// Example 6: Empty and null values
 	fmt.Println("\n6. Empty and Null Values:")
@@ -178,14 +182,48 @@ logging:
 		"false_value": false,
 	}
 	
-	emptyYAML, _ := yyaml.Dumps(emptyData)
+	emptyYAML, _ := yyaml.Marshal(emptyData)
 	fmt.Println("   YAML with empty values:")
-	fmt.Println(emptyYAML)
+	fmt.Println(string(emptyYAML))
 	
 	// Parse it back
-	parsedEmpty, _ := yyaml.Loads(emptyYAML)
+	var parsedEmpty interface{}
+	yyaml.Unmarshal(emptyYAML, &parsedEmpty)
 	fmt.Println("\n   Parsed back:")
 	fmt.Printf("   %v\n", parsedEmpty)
+	
+	// Example 7: Performance demonstration
+	fmt.Println("\n7. Performance Demonstration:")
+	
+	// Create a large data structure
+	largeData := make(map[string]interface{})
+	for i := 0; i < 100; i++ {
+		key := fmt.Sprintf("item_%d", i)
+		largeData[key] = map[string]interface{}{
+			"id": i,
+			"name": fmt.Sprintf("Item %d", i),
+			"value": float64(i) * 1.5,
+			"active": i%2 == 0,
+		}
+	}
+	
+	fmt.Println("   Marshaling large data structure...")
+	largeYAML, err := yyaml.Marshal(largeData)
+	if err != nil {
+		fmt.Printf("   Error: %v\n", err)
+	} else {
+		fmt.Printf("   Success! Generated %d bytes of YAML\n", len(largeYAML))
+		
+		// Unmarshal it back
+		var largeParsed interface{}
+		fmt.Println("   Unmarshaling back...")
+		err = yyaml.Unmarshal(largeYAML, &largeParsed)
+		if err != nil {
+			fmt.Printf("   Error: %v\n", err)
+		} else {
+			fmt.Println("   Successfully unmarshaled large data structure!")
+		}
+	}
 	
 	fmt.Println("\n=== Examples completed successfully ===")
 }

@@ -1,5 +1,5 @@
-// Basic example showing how to use yyaml Go package
-// To run: go run basic_example.go
+// Basic example showing how to use yyaml Go package with standard Marshal/Unmarshal API
+// To run: go run sample01_basic.go
 package main
 
 import (
@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	// Example 1: Parse YAML string
+	// Example 1: Parse YAML string using Unmarshal
 	yamlStr := `name: John Doe
 age: 30
 active: true
@@ -23,8 +23,9 @@ address:
   zip: 94107
 `
 	
-	fmt.Println("=== Example 1: Parsing YAML ===")
-	result, err := yyaml.Loads(yamlStr)
+	fmt.Println("=== Example 1: Parsing YAML with Unmarshal ===")
+	var result interface{}
+	err := yyaml.Unmarshal([]byte(yamlStr), &result)
 	if err != nil {
 		log.Fatalf("Failed to parse YAML: %v", err)
 	}
@@ -32,8 +33,8 @@ address:
 	fmt.Printf("Parsed result: %v\n", result)
 	fmt.Println()
 	
-	// Example 2: Create data and convert to YAML
-	fmt.Println("=== Example 2: Generating YAML ===")
+	// Example 2: Create data and convert to YAML using Marshal
+	fmt.Println("=== Example 2: Generating YAML with Marshal ===")
 	data := map[string]interface{}{
 		"name": "Alice Smith",
 		"age":  25,
@@ -52,28 +53,29 @@ address:
 		},
 	}
 	
-	output, err := yyaml.Dumps(data)
+	output, err := yyaml.Marshal(data)
 	if err != nil {
 		log.Fatalf("Failed to generate YAML: %v", err)
 	}
 	
 	fmt.Println("Generated YAML:")
-	fmt.Println(output)
+	fmt.Println(string(output))
 	
-	// Example 3: Roundtrip test
+	// Example 3: Roundtrip test with Marshal/Unmarshal
 	fmt.Println("=== Example 3: Roundtrip Test ===")
-	parsedBack, err := yyaml.Loads(output)
+	var parsedBack interface{}
+	err = yyaml.Unmarshal(output, &parsedBack)
 	if err != nil {
 		log.Fatalf("Failed to parse generated YAML: %v", err)
 	}
 	
 	fmt.Printf("Successfully parsed back: %v\n", parsedBack != nil)
 	
-	// Example 4: Working with files
-	fmt.Println("\n=== Example 4: File Operations ===")
+	// Example 4: Working with configuration data
+	fmt.Println("\n=== Example 4: Configuration Example ===")
 	
-	// Create a temporary file
-	tempData := map[string]interface{}{
+	// Create configuration data
+	configData := map[string]interface{}{
 		"config": map[string]interface{}{
 			"version": "1.0.0",
 			"debug": false,
@@ -86,7 +88,22 @@ address:
 		},
 	}
 	
-	yamlOutput, _ := yyaml.Dumps(tempData)
+	yamlOutput, _ := yyaml.Marshal(configData)
 	fmt.Println("Sample configuration:")
-	fmt.Println(yamlOutput)
+	fmt.Println(string(yamlOutput))
+	
+	// Example 5: Type demonstration
+	fmt.Println("\n=== Example 5: Type Preservation ===")
+	typeDemo := map[string]interface{}{
+		"integer": 42,
+		"float":   3.14159,
+		"boolean": true,
+		"null":    nil,
+		"string":  "Hello, World!",
+		"array":   []interface{}{1, "two", 3.0, true},
+	}
+	
+	typeOutput, _ := yyaml.Marshal(typeDemo)
+	fmt.Println("Type-preserving YAML:")
+	fmt.Println(string(typeOutput))
 }
