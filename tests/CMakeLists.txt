@@ -6,12 +6,13 @@ file(GLOB C_TEST_SOURCES "c/test_*.c")
 
 # C test executable
 add_executable(yyaml_c_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/utest/utest_main.cxx
     ${C_TEST_SOURCES}
 )
 
 target_include_directories(yyaml_c_tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/includes
-    ${CMAKE_SOURCE_DIR}/tests/utest
+    ${CMAKE_SOURCE_DIR}/yyaml
+    ${CMAKE_SOURCE_DIR}/tests
     ${CMAKE_CURRENT_SOURCE_DIR}/c
 )
 
@@ -26,12 +27,14 @@ file(GLOB CPP_TEST_SOURCES "cpp/test_*.cpp")
 
 # C++ test executable
 add_executable(yyaml_cpp_tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/utest/utest_main.cxx
     ${CPP_TEST_SOURCES}
 )
 
 target_include_directories(yyaml_cpp_tests PRIVATE
-    ${CMAKE_SOURCE_DIR}/includes
-    ${CMAKE_SOURCE_DIR}/tests/utest
+    ${CMAKE_SOURCE_DIR}/yyaml
+    ${CMAKE_SOURCE_DIR}/bindings/cpp
+    ${CMAKE_SOURCE_DIR}/tests
     ${CMAKE_CURRENT_SOURCE_DIR}/cpp
 )
 

@@ -12,11 +12,11 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Create library target
-add_library(yyaml STATIC src/yyaml.c)
+add_library(yyaml STATIC yyaml/yyaml.c)
 
 # Include directories
 target_include_directories(yyaml PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/includes
+    ${CMAKE_CURRENT_SOURCE_DIR}/yyaml
 )
 
 # Compiler options
@@ -62,7 +62,7 @@ if(BUILD_PYTHON OR DEFINED SKBUILD)
 
 
     # Transpile Cython to C
-    cython_transpile(${PROJECT_SOURCE_DIR}/src/python/yyaml_python.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_c_file)
+    cython_transpile(${PROJECT_SOURCE_DIR}/bindings/python/yyaml_python.pyx LANGUAGE CXX OUTPUT_VARIABLE yyaml_c_file)
 
     # Create the Python extension module
     python_add_library(yyaml_python MODULE "${yyaml_c_file}" WITH_SOABI)
@@ -73,7 +73,7 @@ if(BUILD_PYTHON OR DEFINED SKBUILD)
 
 
     if (DEFINED SKBUILD)
-        install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/bindings/python/yyaml
             DESTINATION .
             FILES_MATCHING PATTERN "*.py"
         )
@@ -86,7 +86,7 @@ if(BUILD_PYTHON OR DEFINED SKBUILD)
         RETURN()
     else()
         # Install the module to the standard Python site-packages directory
-        install(DIRECTORY ${PROJECT_SOURCE_DIR}/src/python/yyaml
+        install(DIRECTORY ${PROJECT_SOURCE_DIR}/bindings/python/yyaml
             DESTINATION ${CMAKE_BINARY_DIR}
             FILES_MATCHING PATTERN "*.py"
         )
@@ -104,9 +104,12 @@ install(TARGETS yyaml
     RUNTIME DESTINATION bin
 )
 
-install(DIRECTORY includes/
+install(DIRECTORY yyaml/
     DESTINATION include
-    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+    FILES_MATCHING PATTERN "*.h"
+)
+install(FILES bindings/cpp/yyaml.hpp
+    DESTINATION include
 )
 
 if(BUILD_TESTS)
