@@ -94,8 +94,13 @@ void dump_file_as_json(const std::string& path) {
 
 int main() {
     const auto data_dir = fs::path(__FILE__).parent_path().parent_path() / "data";
-    const std::vector<std::string> files = {"app_config.yaml", "inventory.yml"};
-
+    std::vector<std::string> files;
+    for (const auto& entry : fs::directory_iterator(data_dir)) {
+        if (entry.path().extension() == ".yaml" || entry.path().extension() == ".yml") {
+            files.push_back(entry.path().filename().string());
+        }
+    }
+    
     for (const auto& file : files) {
         dump_file_as_json((data_dir / file).string());
     }
