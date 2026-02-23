@@ -33,32 +33,24 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc
+    # - name: Install system dependencies
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y gcc
     
-    - name: Verify Go installation
-      run: |
-        go version
-        gcc --version
+    # - name: Verify Go installation
+    #   run: |
+    #     go version
+    #     gcc --version
     
     - name: Build Go package
-      run: |
-        cd bindings/go
-        go build -v .
+      run: go build -v .
     
     - name: Run tests
-      run: |
-        cd tests/go
-        go test -v ./...
+      run: go test -C tests/go -v
     
     - name: Run vet
-      run: |
-        cd bindings/go
-        go vet ./...
+      run: go vet ./...
     
     - name: Check formatting
-      run: |
-        cd bindings/go
-        gofmt -d -e -s .
+      run: gofmt -d -e -s .
