@@ -1,6 +1,8 @@
 package yyaml_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -195,5 +197,46 @@ settings:
 
 	if settings["theme"] != "dark" {
 		t.Errorf("Expected theme=dark, got %v", settings["theme"])
+	}
+}
+
+func TestUnmarshalData(t *testing.T) {
+	// Define test files pattern
+
+	entries, err := os.ReadDir("../data")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var testFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
+			testFiles = append(testFiles, filepath.Join("../data", entry.Name()))
+		}
+	}
+
+	for _, filePath := range testFiles {
+		t.Run(filePath, func(t *testing.T) {
+			// Read YAML file
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read file %s: %v", filePath, err)
+			}
+
+			// Unmarshal YAML
+			var result interface{}
+			err = yyaml.Unmarshal(data, &result)
+			if err != nil {
+				t.Fatalf("Failed to unmarshal file %s: %v", filePath, err)
+			}
+
+			// Basic validation - just ensure it parsed without error
+			if result == nil && len(data) > 0 {
+				t.Errorf("Expected non-nil result for file %s", filePath)
+			}
+
+			// Log success for debugging
+			t.Logf("Successfully parsed %s", filePath)
+		})
 	}
 }
