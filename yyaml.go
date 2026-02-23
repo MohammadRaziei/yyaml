@@ -12,8 +12,8 @@ package yyaml
 #include <limits.h>
 
 // Include the actual C source files
-#include "../../yyaml/yyaml.h"
-#include "../../yyaml/yyaml.c"
+#include "yyaml/yyaml.h"
+#include "yyaml/yyaml.c"
 */
 import "C"
 import (
@@ -43,15 +43,15 @@ func Unmarshal(data []byte, v interface{}) error {
 		return err
 	}
 	defer doc.Close()
-	
+
 	result := doc.ToInterface()
-	
+
 	// If v is *interface{}, assign the result
 	if ptr, ok := v.(*interface{}); ok {
 		*ptr = result
 		return nil
 	}
-	
+
 	// For now, we only support unmarshaling into interface{}
 	// In the future, we could add support for struct unmarshaling
 	return errors.New("yyaml.Unmarshal currently only supports *interface{} as destination")
@@ -65,7 +65,7 @@ func Marshal(v interface{}) ([]byte, error) {
 		return nil, errors.New("failed to create document")
 	}
 	defer doc.Close()
-	
+
 	str, err := doc.DumpString()
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func fromInterface(v interface{}) *Document {
 	if cDoc == nil {
 		return nil
 	}
-	
+
 	doc := &Document{doc: cDoc}
 	runtime.SetFinalizer(doc, func(d *Document) {
 		if d.doc != nil {
@@ -109,13 +109,13 @@ func fromInterface(v interface{}) *Document {
 			d.doc = nil
 		}
 	})
-	
+
 	rootIdx := encodeValue(doc, v)
 	if rootIdx == ^uint32(0) || !doc.SetRoot(rootIdx) {
 		doc.Close()
 		return nil
 	}
-	
+
 	return doc
 }
 
@@ -188,7 +188,7 @@ func (d *Document) DumpString() (string, error) {
 	if root == nil {
 		return "", errors.New("document has no root")
 	}
-	
+
 	var cOut *C.char
 	var cLen C.size_t
 	var cErr C.yyaml_err
@@ -219,7 +219,7 @@ func (n *Node) toInterface() interface{} {
 	if n == nil || n.node == nil {
 		return nil
 	}
-	
+
 	switch n.node._type {
 	case C.YYAML_NULL:
 		return nil
@@ -260,7 +260,7 @@ func (n *Node) toInterface() interface{} {
 		if cBuf == nil {
 			return result
 		}
-		
+
 		// Get the first child (value node)
 		childIdx := n.node.child
 		for childIdx != ^C.uint32_t(0) {
@@ -268,16 +268,16 @@ func (n *Node) toInterface() interface{} {
 			if cChild == nil {
 				break
 			}
-			
+
 			// Get the key from the child's extra and flags fields
 			bufPtr := unsafe.Pointer(cBuf)
 			keyPtr := (*C.char)(unsafe.Pointer(uintptr(bufPtr) + uintptr(cChild.extra)))
 			keyLen := cChild.flags
 			key := C.GoStringN(keyPtr, C.int(keyLen))
-			
+
 			// The child node itself is the value
 			result[key] = (&Node{node: cChild, doc: n.doc}).toInterface()
-			
+
 			// Move to next child (next value node)
 			childIdx = cChild.next
 		}
