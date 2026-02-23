@@ -1,0 +1,13 @@
+if(NOT DEFINED PROJECT_IS_TOP_LEVEL)
+    if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        set(PROJECT_IS_TOP_LEVEL ON)
+    else()
+        set(PROJECT_IS_TOP_LEVEL OFF)
+    endif()
+endif()
+
+if(PROJECT_IS_TOP_LEVEL)
+    message(STATUS "Project '${PROJECT_NAME}' is TOP-LEVEL")
+else()
+    message(STATUS "Project '${PROJECT_NAME}' is a SUBPROJECT")
+endif()
