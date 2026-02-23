@@ -13,19 +13,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Create library target
 add_library(yyaml STATIC yyaml/yyaml.c)
-
-# Include directories
-target_include_directories(yyaml PUBLIC
+target_include_directories(yyaml PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/yyaml
 )
+target_compile_options(yyaml PRIVATE -Wall -Wextra -Wpedantic)
+add_library(yyaml::yyaml ALIAS yyaml)
 
-# Compiler options
-target_compile_options(yyaml PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
+
+add_library(yyaml_cpp INTERFACE)
+target_link_libraries(yyaml_cpp INTERFACE yyaml::yyaml)
+target_include_directories(yyaml_cpp INTERFACE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/bindings/cpp
 )
-
+add_library(yyaml::yyamlcpp ALIAS yyaml_cpp)
 
 
 # Optimize for performance
