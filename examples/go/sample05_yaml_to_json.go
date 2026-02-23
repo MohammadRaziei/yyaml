@@ -6,20 +6,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	
-	yyaml "github.com/mohammadraziei/yyaml/bindings/go"
+
+	yyaml "github.com/mohammadraziei/yyaml"
 )
 
 func main() {
 	fmt.Println("=== YAML to JSON Conversion Example ===\n")
-	
+
 	// Counter for examples
 	exampleCounter := 1
-	
+
 	// Example 1: Simple YAML to JSON Conversion
 	fmt.Printf("\n[Example %d] Simple YAML to JSON Conversion\n", exampleCounter)
 	exampleCounter++
-	
+
 	yamlStr1 := `name: John Doe
 age: 30
 active: true
@@ -30,10 +30,10 @@ hobbies:
 address:
   city: San Francisco
   zip: 94107`
-	
+
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr1)
-	
+
 	var data1 interface{}
 	err := yyaml.Unmarshal([]byte(yamlStr1), &data1)
 	if err != nil {
@@ -48,23 +48,23 @@ address:
 			fmt.Println(string(yamlOutput1))
 			fmt.Println("--- END YAML ---")
 		}
-		
+
 		// Convert to JSON with different formatting
 		jsonPretty1, _ := json.MarshalIndent(data1, "", "    ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 		fmt.Println(string(jsonPretty1))
 		fmt.Println("--- END JSON ---")
-		
+
 		jsonPretty2_1, _ := json.MarshalIndent(data1, "", "  ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 2-space) ---")
 		fmt.Println(string(jsonPretty2_1))
 		fmt.Println("--- END JSON ---")
 	}
-	
+
 	// Example 2: Complex YAML with Nested Structures
 	fmt.Printf("\n[Example %d] Complex YAML with Nested Structures\n", exampleCounter)
 	exampleCounter++
-	
+
 	yamlStr2 := `users:
   - id: 1
     name: Alice
@@ -99,10 +99,10 @@ settings:
     api: "30s"
     database: "10s"
     cache: "5s"`
-	
+
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr2)
-	
+
 	var data2 interface{}
 	err = yyaml.Unmarshal([]byte(yamlStr2), &data2)
 	if err != nil {
@@ -117,23 +117,23 @@ settings:
 			fmt.Println(string(yamlOutput2))
 			fmt.Println("--- END YAML ---")
 		}
-		
+
 		// Convert to JSON with different formatting
 		jsonPretty2, _ := json.MarshalIndent(data2, "", "    ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 		fmt.Println(string(jsonPretty2))
 		fmt.Println("--- END JSON ---")
-		
+
 		jsonPretty2_2, _ := json.MarshalIndent(data2, "", "  ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 2-space) ---")
 		fmt.Println(string(jsonPretty2_2))
 		fmt.Println("--- END JSON ---")
 	}
-	
+
 	// Example 3: YAML with All Data Types
 	fmt.Printf("\n[Example %d] YAML with All Data Types\n", exampleCounter)
 	exampleCounter++
-	
+
 	yamlStr3 := `string: "hello world"
 integer: 42
 float: 3.14159
@@ -157,10 +157,10 @@ empty_string: ""
 zero: 0
 empty_array: []
 empty_object: {}`
-	
+
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr3)
-	
+
 	var data3 interface{}
 	err = yyaml.Unmarshal([]byte(yamlStr3), &data3)
 	if err != nil {
@@ -175,23 +175,23 @@ empty_object: {}`
 			fmt.Println(string(yamlOutput3))
 			fmt.Println("--- END YAML ---")
 		}
-		
+
 		// Convert to JSON with different formatting
 		jsonPretty3, _ := json.MarshalIndent(data3, "", "    ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 		fmt.Println(string(jsonPretty3))
 		fmt.Println("--- END JSON ---")
-		
+
 		jsonPretty2_3, _ := json.MarshalIndent(data3, "", "  ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 2-space) ---")
 		fmt.Println(string(jsonPretty2_3))
 		fmt.Println("--- END JSON ---")
 	}
-	
+
 	// Example 4: YAML with Comments and Special Formatting
 	fmt.Printf("\n[Example %d] YAML with Comments and Special Formatting\n", exampleCounter)
 	exampleCounter++
-	
+
 	yamlStr4 := `# API Configuration
 api:
   version: "v1"
@@ -232,10 +232,10 @@ logging:
   level: "info"
   format: "json"
   output: "stdout"`
-	
+
 	fmt.Println("Original YAML input (with comments):")
 	fmt.Println(yamlStr4)
-	
+
 	var data4 interface{}
 	err = yyaml.Unmarshal([]byte(yamlStr4), &data4)
 	if err != nil {
@@ -243,7 +243,7 @@ logging:
 	} else {
 		// Note: Comments are not preserved in parsed data
 		fmt.Println("\nNote: YAML comments are not preserved in parsed data structure")
-		
+
 		// Dump back to YAML (comments will be lost)
 		yamlOutput4, err := yyaml.Marshal(data4)
 		if err != nil {
@@ -253,18 +253,18 @@ logging:
 			fmt.Println(string(yamlOutput4))
 			fmt.Println("--- END YAML ---")
 		}
-		
+
 		// Convert to JSON
 		jsonPretty4, _ := json.MarshalIndent(data4, "", "    ")
 		fmt.Println("\n--- JSON OUTPUT (beautified, 4-space) ---")
 		fmt.Println(string(jsonPretty4))
 		fmt.Println("--- END JSON ---")
 	}
-	
+
 	// Example 5: Roundtrip YAML -> JSON -> YAML
 	fmt.Printf("\n[Example %d] Roundtrip YAML -> JSON -> YAML\n", exampleCounter)
 	exampleCounter++
-	
+
 	yamlStr5 := `product:
   name: "Laptop"
   price: 1299.99
@@ -277,10 +277,10 @@ logging:
     - electronics
     - computers
     - portable`
-	
+
 	fmt.Println("Original YAML input:")
 	fmt.Println(yamlStr5)
-	
+
 	var data5 interface{}
 	err = yyaml.Unmarshal([]byte(yamlStr5), &data5)
 	if err != nil {
@@ -291,7 +291,7 @@ logging:
 		fmt.Println("\n--- Intermediate JSON ---")
 		fmt.Println(string(jsonOutput5))
 		fmt.Println("--- END JSON ---")
-		
+
 		// Parse JSON back
 		var jsonData interface{}
 		if err := json.Unmarshal(jsonOutput5, &jsonData); err != nil {
@@ -308,6 +308,6 @@ logging:
 			}
 		}
 	}
-	
+
 	fmt.Println("\n=== YAML to JSON conversion example completed ===")
 }

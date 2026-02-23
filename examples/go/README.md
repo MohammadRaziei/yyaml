@@ -111,7 +111,7 @@ Demonstrates the reverse conversion process:
 
 ### Parsing YAML
 ```go
-import yyaml "github.com/mohammadraziei/yyaml/bindings/go"
+import yyaml "github.com/mohammadraziei/yyaml"
 
 yamlStr := `name: John
 age: 30

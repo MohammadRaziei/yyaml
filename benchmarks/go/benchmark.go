@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-yaml"
-	yyaml "github.com/mohammadraziei/yyaml/bindings/go"
+	yyaml "github.com/mohammadraziei/yyaml"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 	goyaml "gopkg.in/yaml.v3"
 )

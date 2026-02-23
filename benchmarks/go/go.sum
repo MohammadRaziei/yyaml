@@ -38,8 +38,10 @@ github.com/mikefarah/yq/v4 v4.52.4 h1:wZlxBMjyKCzzQjL0u6a3zToKuyE7OdJr4OtLBtwph4
 github.com/mikefarah/yq/v4 v4.52.4/go.mod h1:8QwgSgDsmt4LCbfwvGUAh5oWSukRRuVJ8Gj98zJ/45o=
 github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0=
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
-github.com/mohammadraziei/yyaml/bindings/go v0.0.0-20260223070430-69d91ec63c68 h1:zsTxhhtSR3jo454yZPQwkxsM79vhgL9UHKbqn2E3r2s=
-github.com/mohammadraziei/yyaml/bindings/go v0.0.0-20260223070430-69d91ec63c68/go.mod h1:2/OwQvvw4nfPjnhjInyKEELsiMKaQ6PsmrXd9Zn4twU=
+github.com/mohammadraziei/yyaml v0.0.0-20260223070430-69d91ec63c68 h1:zsTxhhtSR3jo454yZPQwkxsM79vhgL9UHKbqn2E3r2s=
+github.com/mohammadraziei/yyaml v0.0.0-20260223070430-69d91ec63c68/go.mod h1:2/OwQvvw4nfPjnhjInyKEELsiMKaQ6PsmrXd9Zn4twU=
+github.com/mohammadraziei/yyaml v0.0.0-20260223131356-15ba6630c659 h1:P+3W+rqja/fDBO+G/SypDprn4wiF5TJSE1CEUoRrfG0=
+github.com/mohammadraziei/yyaml v0.0.0-20260223131356-15ba6630c659/go.mod h1:5A9tDrM46wma6iQi+ANhTUAH9En2NAxQXfgXY3lmEs8=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

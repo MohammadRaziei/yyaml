@@ -22,7 +22,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mikefarah/yq/v4 v4.52.4 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	github.com/mohammadraziei/yyaml/bindings/go v0.0.0-20260223070430-69d91ec63c68 // indirect
+	github.com/mohammadraziei/yyaml v0.0.0-20260223131356-15ba6630c659 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
@@ -39,5 +39,3 @@ require (
 	gopkg.in/op/go-logging.v1 v1.0.0-20160211212156-b2cb9fa56473 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/mohammadraziei/yyaml/bindings/go => ../../bindings/go
