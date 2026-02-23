@@ -1,8 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
+
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+# include(PyProject)
+# include(DynamicVersion)
 project(yyaml VERSION 1.0.0 LANGUAGES C CXX)
 
-option(BUILD_EXAMPLES "Build yyaml example programs" OFF)
-option(BUILD_TESTS "Build yyaml test suites" ON)
+include(Startup)
+
+option(BUILD_TESTS "Build yyaml test suites" ${PROJECT_IS_TOP_LEVEL})
 option(BUILD_PYTHON "Build yyaml Python bindings" OFF)
 
 # Set C standard
@@ -49,9 +54,6 @@ endif()
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
-
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-
 
 if(BUILD_PYTHON OR DEFINED SKBUILD)
 
@@ -119,8 +121,3 @@ if(BUILD_TESTS)
     endif()
 endif()
 
-if(BUILD_EXAMPLES)
-    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/examples/CMakeLists.txt)
-        add_subdirectory(examples)
-    endif()
-endif()
