@@ -4,7 +4,7 @@
 package yyaml
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../yyaml
+#cgo CFLAGS: -I${SRCDIR}/yyaml
 
 #include <stdlib.h>
 #include <stdint.h>
