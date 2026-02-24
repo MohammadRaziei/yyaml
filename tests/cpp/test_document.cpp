@@ -3,6 +3,10 @@
 
 #include <string>
 #include <cmath>
+#include <fstream>
+#include <vector>
+#include <filesystem>
+#include <iostream>
 
 namespace {
 
@@ -317,4 +321,91 @@ UTEST(cpp_tests, document_builder_constructs_nested_structures) {
     ASSERT_TRUE(built_root["active"].as_bool());
     ASSERT_EQ(2, built_root["tags"].size());
     ASSERT_TRUE(built_root["meta"].is_mapping());
+}
+
+// Helper function to read file content
+static std::string read_file(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) {
+        return "";
+    }
+    
+    file.seekg(0, std::ios::end);
+    std::size_t length = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    std::string buffer(length, '\0');
+    file.read(&buffer[0], length);
+    return buffer;
+}
+
+// Helper function to get test data directory
+static std::string get_test_data_dir() {
+    // Try to get from environment variable first
+    const char* env_dir = std::getenv("YYAML_TEST_DATA_DIR");
+    if (env_dir && env_dir[0] != '\0') {
+        return env_dir;
+    }
+    
+    // Fallback: relative path from current file
+    std::filesystem::path current_file(__FILE__);
+    std::filesystem::path data_dir = current_file.parent_path().parent_path() / "data";
+    return data_dir.string();
+}
+
+// Test reading all YAML files in data directory (similar to Go and C tests)
+UTEST(cpp_tests, test_read_all_data_files) {
+    std::string data_dir = get_test_data_dir();
+    std::cout << "Scanning data directory: " << data_dir << std::endl;
+    
+    // Check if directory exists
+    if (!std::filesystem::exists(data_dir)) {
+        std::cout << "Data directory does not exist: " << data_dir << std::endl;
+        return;
+    }
+    
+    // Collect all .yaml files
+    std::vector<std::filesystem::path> yaml_files;
+    for (const auto& entry : std::filesystem::directory_iterator(data_dir)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".yaml") {
+            yaml_files.push_back(entry.path());
+        }
+    }
+    
+    if (yaml_files.empty()) {
+        std::cout << "No YAML files found in " << data_dir << std::endl;
+        return;
+    }
+    
+    // Process each file
+    for (const auto& file_path : yaml_files) {
+        std::string filename = file_path.filename().string();
+        std::cout << "Testing file: " << filename << std::endl;
+        
+        // Read file content
+        std::string yaml_content = read_file(file_path.string());
+        ASSERT_TRUE(!yaml_content.empty());
+        
+        try {
+            // Parse YAML using yyaml::document::parse
+            auto doc = yyaml::document::parse(yaml_content);
+            auto root = doc.root();
+            
+            // Basic validation - just ensure it parsed without error
+            ASSERT_TRUE(doc.valid());
+            
+            if (!yaml_content.empty()) {
+                ASSERT_TRUE(root.is_valid());
+            }
+            
+            // Log success for debugging
+            std::cout << "Successfully parsed " << filename << std::endl;
+            
+        } catch (const yyaml::yyaml_error& e) {
+            // If parsing fails, the test should fail
+            std::cerr << "Failed to parse " << filename << ": " << e.what() 
+                      << " (line " << e.line << ", column " << e.column << ")" << std::endl;
+            ASSERT_TRUE(false && "Failed to parse YAML file");
+        }
+    }
 }
