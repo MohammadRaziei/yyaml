@@ -276,11 +276,24 @@ func printResults(results []BenchmarkResult) {
 }
 
 func main() {
-	yamlDir := "../data/yaml-test-suite/src"
+	// Get the executable path to calculate relative paths
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Failed to get executable path: %v", err)
+	}
+	exeDir := filepath.Dir(exePath)
+
+	// Try to find the data directory relative to the executable
+	// First try: from build directory (if running from build/)
+	yamlDir := filepath.Join(exeDir, "..", "..", "data", "yaml-test-suite", "src")
 
 	// Check if directory exists
 	if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
-		log.Fatalf("YAML test suite directory does not exist: %s", yamlDir)
+		// Second try: from benchmarks/go directory (if running directly)
+		yamlDir = filepath.Join(exeDir, "..", "data", "yaml-test-suite", "src")
+		if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
+			log.Fatalf("YAML test suite directory does not exist: %s", yamlDir)
+		}
 	}
 
 	fmt.Printf("Scanning YAML files in: %s\n", yamlDir)
@@ -331,15 +344,21 @@ func main() {
 
 	printResults(allResults)
 
+	// Create output directory
+	if err := os.MkdirAll("output", 0755); err != nil {
+		log.Printf("Error creating output directory: %v", err)
+	}
+
 	// Save results to JSON file
 	jsonData, err := json.MarshalIndent(allResults, "", "  ")
 	if err != nil {
 		log.Printf("Error marshaling results to JSON: %v", err)
 	} else {
-		if err := ioutil.WriteFile("benchmark_results.json", jsonData, 0644); err != nil {
+		outputPath := "output/benchmark_results.json"
+		if err := ioutil.WriteFile(outputPath, jsonData, 0644); err != nil {
 			log.Printf("Error writing results to file: %v", err)
 		} else {
-			fmt.Printf("\nResults saved to: benchmark_results.json\n")
+			fmt.Printf("\nResults saved to: %s\n", outputPath)
 		}
 	}
 
@@ -412,9 +431,10 @@ func generateSummary(results []BenchmarkResult, files []string) {
 		summary += "\n"
 	}
 
-	if err := ioutil.WriteFile("BENCHMARK_SUMMARY.md", []byte(summary), 0644); err != nil {
+	outputPath := "output/BENCHMARK_SUMMARY.md"
+	if err := ioutil.WriteFile(outputPath, []byte(summary), 0644); err != nil {
 		log.Printf("Error writing summary: %v", err)
 	} else {
-		fmt.Printf("Summary saved to: BENCHMARK_SUMMARY.md\n")
+		fmt.Printf("Summary saved to: %s\n", outputPath)
 	}
 }
