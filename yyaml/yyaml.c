@@ -505,8 +505,18 @@ static bool yyaml_parse_block_scalar(const char *data, size_t len,
 
         if (cur_indent < base_indent) {
             if (blank_line) {
-                *pos = line_start;
-                break;
+                if (*pos < len && data[*pos] == '\r' && *pos + 1 < len &&
+                    data[*pos + 1] == '\n') {
+                    (*pos)++;
+                }
+                if (*pos < len && data[*pos] == '\n') {
+                    (*pos)++;
+                    (*line)++;
+                }
+                if (buf_len < buf_cap) {
+                    buf[buf_len++] = '\n';
+                }
+                continue;
             }
             *pos = line_start;
             break;
