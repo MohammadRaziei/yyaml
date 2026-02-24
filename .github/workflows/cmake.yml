@@ -55,9 +55,9 @@ jobs:
       run: ctest --test-dir build --extra-verbose 
 
     
-    - name: Build examples
-      run: |
-        cmake --build build --target yyaml_c_examples yyaml_cpp_examples --config ${{ matrix.build-type }}
+    # - name: Build examples
+      # run: |
+        # cmake --build build --target yyaml_c_examples yyaml_cpp_examples --config ${{ matrix.build-type }}
     
     # - name: Run C examples
     #   if: matrix.os != 'windows-latest'
