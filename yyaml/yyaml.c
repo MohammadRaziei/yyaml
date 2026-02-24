@@ -189,6 +189,19 @@ static bool yyaml_is_anchor_only(const char *str, size_t len) {
     return i == len;
 }
 
+static bool yyaml_is_doc_marker(const char *str, size_t len,
+                                char marker) {
+    size_t i = 0;
+    while (i < len && isspace((unsigned char)str[i])) i++;
+    if (i + 3 > len) return false;
+    if (str[i] != marker || str[i + 1] != marker || str[i + 2] != marker) {
+        return false;
+    }
+    i += 3;
+    while (i < len && isspace((unsigned char)str[i])) i++;
+    return i == len;
+}
+
 static bool yyaml_is_flow_mapping(const char *str, size_t len,
                                   size_t *content_start,
                                   size_t *content_end) {
@@ -846,6 +859,23 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
                isspace((unsigned char)data[content_end - 1])) {
             content_end--;
         }
+
+        if (yyaml_is_doc_marker(data + content_start,
+                                content_end - content_start, '-')) {
+            if (doc->root != YYAML_INDEX_NONE) {
+                if (cfg->allow_trailing_content) break;
+                yyaml_set_error(err, line_start, line, indent + 1,
+                                "multiple root nodes");
+                goto fail;
+            }
+            continue;
+        }
+
+        if (yyaml_is_doc_marker(data + content_start,
+                                content_end - content_start, '.')) {
+            break;
+        }
+
         /* skip to next line */
         while (pos < len && data[pos] != '\n') pos++;
         if (pos < len && data[pos] == '\n') { pos++; line++; col = 1; }
