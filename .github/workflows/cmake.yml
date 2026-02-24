@@ -1,0 +1,76 @@
+name: CMake CI
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'yyaml/**'
+      - 'tests/c/**'
+      - 'tests/cpp/**'
+      - 'examples/c/**'
+      - 'examples/cpp/**'
+      - 'bindings/cpp/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.github/workflows/cmake.yml'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'yyaml/**'
+      - 'tests/c/**'
+      - 'tests/cpp/**'
+      - 'examples/c/**'
+      - 'examples/cpp/**'
+      - 'bindings/cpp/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build-type: [Release]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: '3.28.x'
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+    
+    - name: Build
+      run: |
+        cmake --build build --config ${{ matrix.build-type }} --parallel
+    
+    - name: Run C/C++ tests
+      run: ctest --test-dir build --extra-verbose 
+
+    
+    - name: Build examples
+      run: |
+        cmake --build build --target yyaml_c_examples yyaml_cpp_examples --config ${{ matrix.build-type }}
+    
+    # - name: Run C examples
+    #   if: matrix.os != 'windows-latest'
+    #   run: |
+    #     cd build/examples/c && ./c_sample01_read_app_config
+    #     cd ../.. && cd examples/c && ./c_sample02_parse_inventery
+    #     cd ../.. && cd examples/c && ./c_sample03_roundtrip_temp
+    #     cd ../.. && cd examples/c && ./c_sample04_dump_json
+    
+    # - name: Run C++ examples
+    #   if: matrix.os != 'windows-latest'
+    #   run: |
+    #     cd build/examples/cpp && ./cpp_sample01_roundtrip_complex
+    #     cd ../.. && cd examples/cpp && ./cpp_sample02_inspect_config
+    #     cd ../.. && cd examples/cpp && ./cpp_sample03_dumps_as_json
+    #     cd ../.. && cd examples/cpp && ./cpp_sample04_build_document
