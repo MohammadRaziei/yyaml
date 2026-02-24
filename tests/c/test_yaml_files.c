@@ -6,6 +6,14 @@
 #include <math.h>
 #include <sys/stat.h>
 
+// For directory operations
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/types.h>
+#endif
+
 // Helper function to read file content
 static void build_full_path(char *buffer, size_t buffer_size, const char *relative) {
     const char *this_file = __FILE__;
@@ -33,6 +41,7 @@ static void build_full_path(char *buffer, size_t buffer_size, const char *relati
     }
 }
 
+// Function to read a file (platform-independent interface)
 char* read_file(const char* filename) {
     char full_path[4096]; // Use a reasonable buffer size
     const char *path_to_use = filename;
@@ -77,6 +86,128 @@ char* read_file(const char* filename) {
     
     fclose(file);
     return buffer;
+}
+
+// Structure to hold file information
+typedef struct {
+    char name[256];
+    int is_directory;
+} file_info_t;
+
+// Callback function type for directory traversal
+typedef void (*file_callback_t)(const char* file_path, const char* file_name, void* user_data);
+
+// Platform-independent function to traverse directory and call callback for each file
+static int traverse_directory(const char* dir_path, const char* extension, 
+                             file_callback_t callback, void* user_data) {
+#if defined(_WIN32)
+    // Windows implementation
+    char search_pattern[4096];
+    WIN32_FIND_DATAA find_data;
+    HANDLE handle;
+    
+    if (snprintf(search_pattern, sizeof(search_pattern), "%s\\*%s", dir_path, extension) < 0) {
+        return -1;
+    }
+    
+    handle = FindFirstFileA(search_pattern, &find_data);
+    if (handle == INVALID_HANDLE_VALUE) {
+        return 0; // No files found
+    }
+    
+    do {
+        if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            char file_path[4096];
+            if (snprintf(file_path, sizeof(file_path), "%s\\%s", dir_path, find_data.cFileName) < 0) {
+                continue;
+            }
+            callback(file_path, find_data.cFileName, user_data);
+        }
+    } while (FindNextFileA(handle, &find_data));
+    
+    FindClose(handle);
+    return 1;
+#else
+    // POSIX implementation
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        return -1;
+    }
+    
+    struct dirent *entry;
+    int count = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip hidden files and directories
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        
+        // Check for extension
+        size_t name_len = strlen(entry->d_name);
+        size_t ext_len = strlen(extension);
+        if (name_len >= ext_len && strcmp(entry->d_name + name_len - ext_len, extension) == 0) {
+            char file_path[4096];
+            if (snprintf(file_path, sizeof(file_path), "%s/%s", dir_path, entry->d_name) < 0) {
+                continue;
+            }
+            callback(file_path, entry->d_name, user_data);
+            count++;
+        }
+    }
+    
+    closedir(dir);
+    return count;
+#endif
+}
+
+// Helper structure for collecting file names
+typedef struct {
+    char** files;
+    size_t count;
+    size_t capacity;
+} file_list_t;
+
+// Callback to collect file names
+static void collect_file_callback(const char* file_path, const char* file_name, void* user_data) {
+    file_list_t* list = (file_list_t*)user_data;
+    
+    if (list->count >= list->capacity) {
+        size_t new_capacity = list->capacity == 0 ? 8 : list->capacity * 2;
+        char** new_files = realloc(list->files, new_capacity * sizeof(char*));
+        if (!new_files) return;
+        list->files = new_files;
+        list->capacity = new_capacity;
+    }
+    
+    list->files[list->count] = strdup(file_name);
+    if (list->files[list->count]) {
+        list->count++;
+    }
+}
+
+// Function to get list of files with given extension in directory
+// Returns array of strings (caller must free with free_file_list)
+char** list_files_in_directory(const char* dir_path, const char* extension, size_t* count) {
+    file_list_t list = {0};
+    
+    int result = traverse_directory(dir_path, extension, collect_file_callback, &list);
+    if (result < 0) {
+        *count = 0;
+        return NULL;
+    }
+    
+    *count = list.count;
+    return list.files;
+}
+
+// Free the file list returned by list_files_in_directory
+void free_file_list(char** files, size_t count) {
+    if (!files) return;
+    
+    for (size_t i = 0; i < count; i++) {
+        free(files[i]);
+    }
+    free(files);
 }
 
 // Test loading simple scalars
@@ -322,18 +453,80 @@ UTEST(yyaml_file_tests, test_write_read_complex) {
 UTEST(yyaml_file_tests, test_error_handling) {
     yyaml_doc *doc = NULL;
     yyaml_err err = {0};
-    
+
     // Test with non-existent file
     char* yaml_content = read_file("../tests/data/nonexistent.yaml");
     ASSERT_TRUE(yaml_content == NULL);
-    
+
     // Test with empty content
     doc = yyaml_read("", 0, NULL, &err);
     ASSERT_TRUE(doc != NULL);
-    
+
     const yyaml_node *root = yyaml_doc_get_root(doc);
     ASSERT_TRUE(root != NULL);
     ASSERT_EQ(YYAML_NULL, root->type);
-    
+
     if (doc) yyaml_doc_free(doc);
+}
+
+// Test reading all YAML files in data directory (similar to Go test)
+UTEST(yyaml_file_tests, test_read_all_data_files) {
+    // Get data directory path
+#ifdef YYAML_TEST_DATA_DIR
+    const char* data_dir = YYAML_TEST_DATA_DIR;
+#else
+    // Fallback: build path relative to this file
+    char data_dir[4096];
+    build_full_path(data_dir, sizeof(data_dir), "../tests/data");
+#endif
+    
+    printf("Scanning data directory: %s\n", data_dir);
+    
+    // Use our platform-independent function to list files
+    size_t file_count = 0;
+    char** files = list_files_in_directory(data_dir, ".yaml", &file_count);
+    
+    if (files == NULL || file_count == 0) {
+        printf("No YAML files found in %s\n", data_dir);
+        if (files) free_file_list(files, file_count);
+        return;
+    }
+    
+    // Process each file
+    for (size_t i = 0; i < file_count; i++) {
+        printf("Testing file: %s\n", files[i]);
+        
+        // Build full path
+        char file_path[4096];
+        if (snprintf(file_path, sizeof(file_path), "%s/%s", data_dir, files[i]) < 0) {
+            continue;
+        }
+        
+        // Read YAML file
+        char* yaml_content = read_file(file_path);
+        ASSERT_TRUE(yaml_content != NULL);
+        
+        // Parse YAML using yyaml_read
+        yyaml_doc *doc = NULL;
+        yyaml_err err = {0};
+        doc = yyaml_read(yaml_content, strlen(yaml_content), NULL, &err);
+        
+        // Basic validation - just ensure it parsed without error
+        ASSERT_TRUE(doc != NULL);
+        
+        const yyaml_node *root = yyaml_doc_get_root(doc);
+        if (strlen(yaml_content) > 0) {
+            ASSERT_TRUE(root != NULL);
+        }
+        
+        // Log success for debugging
+        printf("Successfully parsed %s\n", files[i]);
+        
+        // Clean up
+        if (doc) yyaml_doc_free(doc);
+        free(yaml_content);
+    }
+    
+    // Clean up file list
+    free_file_list(files, file_count);
 }
