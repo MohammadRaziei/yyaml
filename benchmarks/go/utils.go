@@ -204,7 +204,7 @@ func createCombinedSVG(results []BenchmarkResult, operations map[string][]Benchm
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 25
-	width := 800
+	width := 600
 
 	// Colors for different operations
 	colors := []string{"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"}
