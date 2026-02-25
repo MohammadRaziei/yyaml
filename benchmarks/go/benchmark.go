@@ -461,22 +461,21 @@ func generateSummary(results []BenchmarkResult, files []string) {
 
 // createSimpleSVG creates a simple SVG horizontal bar chart (bars go left to right)
 func createSimpleSVG(results []BenchmarkResult, operation string) string {
-	// Calculate width based on max value
+	// Calculate width based on max throughput value
 	maxVal := 0.0
 	for _, r := range results {
-		val := float64(r.TotalTime.Milliseconds())
-		if val > maxVal {
-			maxVal = val
+		if r.Throughput > maxVal {
+			maxVal = r.Throughput
 		}
 	}
 
 	// Manual margins: left 200, right 20, top 30, bottom 10
 	leftMargin := 200
-	rightMargin := 50
+	rightMargin := 80
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 30
-	height := 320
+	height := 400
 
 	// Scale maxVal to achieve width = 800
 	targetWidth := 800
@@ -490,10 +489,10 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 	svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="white"/>`, width, height))
 	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="18" text-anchor="middle">%s Performance</text>`, width/2, topMargin, strings.ToUpper(operation)))
 
-	// Draw horizontal bars (left to right)
+	// Draw horizontal bars (left to right) - longer bars for higher throughput
 	for i, r := range results {
 		y := topMargin + 50 + i*(barHeight+20)
-		barWidth := int(float64(r.TotalTime.Milliseconds()) * scaleFactor)
+		barWidth := int(r.Throughput * scaleFactor)
 		x := leftMargin
 
 		// Bar
@@ -510,12 +509,12 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 			leftMargin-10, y+barHeight/2, libName))
 
 		// Value label at the end of the bar
-		svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%d ms</text>`,
-			x+barWidth+5, y+barHeight/2, int(r.TotalTime.Milliseconds())))
+		svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%.1f files/s</text>`,
+			x+barWidth+5, y+barHeight/2, r.Throughput))
 	}
 
 	// X-axis label
-	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="14" text-anchor="middle">Total Time (milliseconds)</text>`,
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="14" text-anchor="middle">Throughput (files per second)</text>`,
 		width/2, height-bottomMargin))
 
 	svg.WriteString("</svg>")
@@ -526,7 +525,7 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 func createCombinedSVG(results []BenchmarkResult, operations map[string][]BenchmarkResult) string {
 	// Manual margins: left 200, right 20, top 30, bottom 10
 	leftMargin := 250
-	rightMargin := 50
+	rightMargin := 80
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 25
@@ -550,13 +549,12 @@ func createCombinedSVG(results []BenchmarkResult, operations map[string][]Benchm
 	}
 	sort.Strings(libraries)
 
-	// Find max value for scaling
+	// Find max throughput value for scaling
 	maxVal := 0.0
 	for _, opResults := range operations {
 		for _, r := range opResults {
-			val := float64(r.TotalTime.Milliseconds())
-			if val > maxVal {
-				maxVal = val
+			if r.Throughput > maxVal {
+				maxVal = r.Throughput
 			}
 		}
 	}
@@ -602,17 +600,17 @@ func createCombinedSVG(results []BenchmarkResult, operations map[string][]Benchm
 		// Draw bars for each operation
 		for opIdx, op := range opNames {
 			if opResults, ok := operations[strings.ToLower(op)]; ok {
-				// Find value for this library and operation
+				// Find throughput value for this library and operation
 				value := 0.0
 				for _, r := range opResults {
 					if r.Library == lib {
-						value = float64(r.TotalTime.Milliseconds())
+						value = r.Throughput
 						break
 					}
 				}
 
 				if value > 0 {
-					barWidth := int(float64(value) * scaleFactor)
+					barWidth := int(value * scaleFactor)
 					x := leftMargin
 					barY := y + opIdx*barHeight
 
@@ -620,15 +618,15 @@ func createCombinedSVG(results []BenchmarkResult, operations map[string][]Benchm
 						x, barY, barWidth, barHeight, colors[opIdx%len(colors)]))
 
 					// Value label at the end of the bar
-					svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%d ms</text>`,
-						x+barWidth+5, barY+barHeight/2, int(value)))
+					svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%.1f files/s</text>`,
+						x+barWidth+5, barY+barHeight/2, value))
 				}
 			}
 		}
 	}
 
 	// X-axis label
-	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="16" text-anchor="middle">Total Time (milliseconds)</text>`,
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="16" text-anchor="middle">Throughput (files per second)</text>`,
 		width/2, height-bottomMargin))
 
 	svg.WriteString("</svg>")
