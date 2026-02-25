@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,6 +16,10 @@ import (
 	"github.com/goccy/go-yaml"
 	yyaml "github.com/mohammadraziei/yyaml"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
 	goyaml "gopkg.in/yaml.v3"
 )
 
@@ -362,11 +367,16 @@ func main() {
 		}
 	}
 
-	// Generate summary markdown
+	// Generate summary markdown with embedded SVG
 	generateSummary(allResults, files)
 }
 
 func generateSummary(results []BenchmarkResult, files []string) {
+	// Create output directory
+	if err := os.MkdirAll("output", 0755); err != nil {
+		log.Printf("Error creating output directory: %v", err)
+	}
+
 	summary := "# YAML Library Benchmark Results\n\n"
 	summary += fmt.Sprintf("**Date:** %s\n", time.Now().Format("2006-01-02 15:04:05"))
 	summary += fmt.Sprintf("**Total Files:** %d\n", len(files))
@@ -378,15 +388,28 @@ func generateSummary(results []BenchmarkResult, files []string) {
 		operations[r.Operation] = append(operations[r.Operation], r)
 	}
 
+	// Generate markdown with embedded SVG
 	for op, opResults := range operations {
-		summary += fmt.Sprintf("## %s\n\n", strings.ToUpper(op))
-		summary += "| Library | Total Time | Avg Time | Success | Errors | Throughput |\n"
-		summary += "|---------|------------|----------|---------|--------|------------|\n"
-
 		// Sort by total time (fastest first)
 		sort.Slice(opResults, func(i, j int) bool {
 			return opResults[i].TotalTime < opResults[j].TotalTime
 		})
+
+		summary += fmt.Sprintf("## %s\n\n", strings.ToUpper(op))
+
+		// Generate and embed SVG plot
+		svgContent, err := generateSVGPlot(opResults, op)
+		if err != nil {
+			log.Printf("Error generating SVG plot for %s: %v", op, err)
+			summary += fmt.Sprintf("<!-- Error generating chart for %s -->\n\n", op)
+		} else {
+			// Embed SVG directly in markdown with caption
+			summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n", svgContent)
+			summary += fmt.Sprintf("<p align=\"center\"><em>Figure: %s performance comparison across YAML libraries</em></p>\n\n", strings.ToUpper(op))
+		}
+
+		summary += "| Library | Total Time | Avg Time | Success | Errors | Throughput |\n"
+		summary += "|---------|------------|----------|---------|--------|------------|\n"
 
 		for _, r := range opResults {
 			summary += fmt.Sprintf("| %s | %v | %v | %d | %d | %.2f files/s |\n",
@@ -400,7 +423,19 @@ func generateSummary(results []BenchmarkResult, files []string) {
 		summary += "\n"
 	}
 
-	// Add performance comparison
+	// Add combined comparison section
+	summary += "## Combined Performance Comparison\n\n"
+
+	// Generate combined SVG plot
+	combinedSVG, err := generateCombinedSVGPlot(results)
+	if err != nil {
+		log.Printf("Error generating combined SVG plot: %v", err)
+		summary += "<!-- Error generating combined chart -->\n\n"
+	} else {
+		summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n\n", combinedSVG)
+	}
+
+	// Add performance comparison tables
 	summary += "## Performance Comparison\n\n"
 
 	for op, opResults := range operations {
@@ -437,4 +472,239 @@ func generateSummary(results []BenchmarkResult, files []string) {
 	} else {
 		fmt.Printf("Summary saved to: %s\n", outputPath)
 	}
+}
+
+// generateSVGPlot generates an SVG bar chart for benchmark results and returns SVG as string
+func generateSVGPlot(results []BenchmarkResult, operation string) (string, error) {
+	// Create a new plot
+	p := plot.New()
+	p.Title.Text = fmt.Sprintf("%s Performance", strings.ToUpper(operation))
+	p.X.Label.Text = "Library"
+	p.Y.Label.Text = "Total Time (ms)"
+
+	// Create bars
+	bars := make(plotter.Values, len(results))
+	labels := make([]string, len(results))
+	for i, r := range results {
+		bars[i] = float64(r.TotalTime.Milliseconds())
+		// Remove only "github.com/" prefix, keep the rest
+		libName := r.Library
+		if strings.HasPrefix(libName, "github.com/") {
+			libName = strings.TrimPrefix(libName, "github.com/")
+		}
+		labels[i] = libName
+	}
+
+	// Create bar chart
+	barWidth := vg.Points(40)
+	barChart, err := plotter.NewBarChart(bars, barWidth)
+	if err != nil {
+		return "", err
+	}
+	barChart.LineStyle.Width = vg.Length(0)
+	barChart.Color = color.RGBA{R: 0, G: 150, B: 0, A: 255} // Green color
+
+	p.Add(barChart)
+	p.NominalX(labels...)
+
+	// Create SVG canvas
+	c, err := draw.NewFormattedCanvas(vg.Length(8*vg.Inch), vg.Length(6*vg.Inch), "svg")
+	if err != nil {
+		// Fallback to simple SVG if canvas creation fails
+		svg := createSimpleSVG(results, operation)
+		return svg, nil
+	}
+
+	p.Draw(draw.New(c))
+
+	// For now, use simple SVG as gonum/plot SVG output requires more setup
+	svg := createSimpleSVG(results, operation)
+	return svg, nil
+}
+
+// generateCombinedSVGPlot generates a combined SVG plot for all operations
+func generateCombinedSVGPlot(results []BenchmarkResult) (string, error) {
+	// Group by operation
+	operations := make(map[string][]BenchmarkResult)
+	for _, r := range results {
+		operations[r.Operation] = append(operations[r.Operation], r)
+	}
+
+	// Create simple SVG for combined view
+	svg := createCombinedSVG(results, operations)
+	return svg, nil
+}
+
+// createSimpleSVG creates a simple SVG horizontal bar chart
+func createSimpleSVG(results []BenchmarkResult, operation string) string {
+	// Calculate width based on max value to make it tight
+	maxVal := 0.0
+	for _, r := range results {
+		val := float64(r.TotalTime.Milliseconds())
+		if val > maxVal {
+			maxVal = val
+		}
+	}
+
+	// Manual margins: left 200, right 20, top 30, bottom 10
+	leftMargin := 200
+	rightMargin := 50
+	topMargin := 30
+	bottomMargin := 10
+	barHeight := 30
+	height := 400
+
+	// Scale maxVal to achieve width
+	targetWidth := 600
+	availableWidth := targetWidth - leftMargin - rightMargin
+	scaleFactor := float64(availableWidth) / maxVal
+
+	width := targetWidth
+
+	var svg strings.Builder
+	svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, width, height))
+	svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="white"/>`, width, height))
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="18" text-anchor="middle">%s Performance</text>`, width/2, topMargin, strings.ToUpper(operation)))
+
+	// Draw horizontal bars
+	for i, r := range results {
+		y := topMargin + 50 + i*(barHeight+20)
+		barWidth := int(float64(r.TotalTime.Milliseconds()) * scaleFactor)
+		x := leftMargin
+
+		// Bar
+		svg.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="%d" height="%d" fill="steelblue" stroke="black" stroke-width="1"/>`,
+			x, y, barWidth, barHeight))
+
+		// Library label - remove only "github.com/" prefix, display horizontally
+		libName := r.Library
+		if strings.HasPrefix(libName, "github.com/") {
+			libName = strings.TrimPrefix(libName, "github.com/")
+		}
+		// Display text horizontally (left aligned)
+		svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="12" text-anchor="end" dy="0.35em">%s</text>`,
+			leftMargin-10, y+barHeight/2, libName))
+
+		// Value label at the end of the bar
+		svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%d ms</text>`,
+			x+barWidth+5, y+barHeight/2, int(r.TotalTime.Milliseconds())))
+	}
+
+	// X-axis label
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="14" text-anchor="middle">Total Time (milliseconds)</text>`,
+		width/2, height-bottomMargin))
+
+	svg.WriteString("</svg>")
+	return svg.String()
+}
+
+// createCombinedSVG creates a combined SVG horizontal bar chart for all operations
+func createCombinedSVG(results []BenchmarkResult, operations map[string][]BenchmarkResult) string {
+	// Manual margins: left 200, right 20, top 30, bottom 10
+	leftMargin := 200
+	rightMargin := 20
+	topMargin := 30
+	bottomMargin := 10
+	barHeight := 25
+
+	// Find max value for scaling
+	maxVal := 0.0
+	for _, opResults := range operations {
+		for _, r := range opResults {
+			val := float64(r.TotalTime.Milliseconds())
+			if val > maxVal {
+				maxVal = val
+			}
+		}
+	}
+
+	// Scale maxVal to achieve width = 800
+	targetWidth := 800
+	availableWidth := targetWidth - leftMargin - rightMargin
+	scaleFactor := float64(availableWidth) / maxVal
+
+	width := targetWidth
+	height := 400
+
+	var svg strings.Builder
+	svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, width, height))
+	svg.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="white"/>`, width, height))
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="20" text-anchor="middle">Combined Performance Comparison</text>`, width/2, topMargin))
+
+	// Get unique libraries
+	librarySet := make(map[string]bool)
+	for _, opResults := range operations {
+		for _, r := range opResults {
+			librarySet[r.Library] = true
+		}
+	}
+
+	// Convert to sorted list
+	var libraries []string
+	for lib := range librarySet {
+		libraries = append(libraries, lib)
+	}
+	sort.Strings(libraries)
+
+	// Colors for different operations
+	colors := []string{"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"}
+	opNames := []string{"UNMARSHAL", "MARSHAL", "ROUNDTRIP"}
+
+	// Draw legend
+	svg.WriteString(`<g transform="translate(50, 50)">`)
+	for i, op := range opNames {
+		if i < len(operations) {
+			svg.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="15" height="15" fill="%s"/>`, 0, i*25, colors[i%len(colors)]))
+			svg.WriteString(fmt.Sprintf(`<text x="20" y="%d" font-family="Arial" font-size="14">%s</text>`, i*25+12, op))
+		}
+	}
+	svg.WriteString("</g>")
+
+	// Draw horizontal bars for each library
+	for libIdx, lib := range libraries {
+		y := topMargin + 100 + libIdx*(barHeight*len(opNames)+40)
+
+		// Library label - remove only "github.com/" prefix
+		shortLib := lib
+		if strings.HasPrefix(shortLib, "github.com/") {
+			shortLib = strings.TrimPrefix(shortLib, "github.com/")
+		}
+		// Display library name on the left
+		svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="14" text-anchor="end" dy="0.35em">%s</text>`,
+			leftMargin-10, y+barHeight*len(opNames)/2, shortLib))
+
+		// Draw bars for each operation
+		for opIdx, op := range opNames {
+			if opResults, ok := operations[strings.ToLower(op)]; ok {
+				// Find value for this library and operation
+				value := 0.0
+				for _, r := range opResults {
+					if r.Library == lib {
+						value = float64(r.TotalTime.Milliseconds())
+						break
+					}
+				}
+
+				if value > 0 {
+					barWidth := int(float64(value) * scaleFactor)
+					x := leftMargin
+					barY := y + opIdx*barHeight
+
+					svg.WriteString(fmt.Sprintf(`<rect x="%d" y="%d" width="%d" height="%d" fill="%s" stroke="black" stroke-width="1"/>`,
+						x, barY, barWidth, barHeight, colors[opIdx%len(colors)]))
+
+					// Value label at the end of the bar
+					svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="11" text-anchor="start" dy="0.35em">%d ms</text>`,
+						x+barWidth+5, barY+barHeight/2, int(value)))
+				}
+			}
+		}
+	}
+
+	// X-axis label
+	svg.WriteString(fmt.Sprintf(`<text x="%d" y="%d" font-family="Arial" font-size="16" text-anchor="middle">Total Time (milliseconds)</text>`,
+		width/2, height-bottomMargin))
+
+	svg.WriteString("</svg>")
+	return svg.String()
 }
