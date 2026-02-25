@@ -475,7 +475,7 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 30
-	height := 400
+	height := 320
 
 	// Scale maxVal to achieve width = 800
 	targetWidth := 800
@@ -525,7 +525,7 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 func createCombinedSVG(results []BenchmarkResult, operations map[string][]BenchmarkResult) string {
 	// Manual margins: left 200, right 20, top 30, bottom 10
 	leftMargin := 250
-	rightMargin := 80
+	rightMargin := 100
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 25
