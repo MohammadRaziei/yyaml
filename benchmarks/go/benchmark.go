@@ -143,19 +143,30 @@ func (y *YYAML) Marshal(data interface{}) ([]byte, error) {
 func collectYAMLFiles(dir string) ([]string, error) {
 	var files []string
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range entries {
+		fullPath := filepath.Join(dir, entry.Name())
+
+		if entry.IsDir() {
+			subFiles, err := collectYAMLFiles(fullPath)
+			if err != nil {
+				return nil, err
+			}
+			files = append(files, subFiles...)
+			continue
 		}
 
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".yaml") {
-			files = append(files, path)
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext == ".yaml" || ext == ".yml" {
+			files = append(files, fullPath)
 		}
+	}
 
-		return nil
-	})
-
-	return files, err
+	return files, nil
 }
 
 func runBenchmark(lib LibraryBenchmark, files []string, operation string) BenchmarkResult {
@@ -199,10 +210,10 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 			// Parse again to verify
 			_, err = lib.Unmarshal(marshaled)
 			// parsed2, err := lib.Unmarshal(marshaled)
-			// if err != nil {
-			// 	errors++
-			// 	continue
-			// }
+			if err != nil {
+				errors++
+				continue
+			}
 
 			// // Convert both to JSON for comparison (deep equality check)
 			// json1, err1 := json.Marshal(parsed)
@@ -295,19 +306,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get executable path: %v", err)
 	}
-	exeDir := filepath.Dir(exePath)
+
+	dataDir := filepath.Join(exePath, "..", "..", "..", "data")
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		dataDir = filepath.Join(dataDir, "..", "..", "data")
+		if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+			log.Fatalf("Data directory does not exist: %s", dataDir)
+		}
+	}
 
 	// Try to find the data directory relative to the executable
 	// First try: from build directory (if running from build/)
-	yamlDir := filepath.Join(exeDir, "..", "..", "data", "yaml-test-suite", "src")
-
-	// Check if directory exists
+	yamlDir := filepath.Join(dataDir, "yaml-test-suite")
 	if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
-		// Second try: from benchmarks/go directory (if running directly)
-		yamlDir = filepath.Join(exeDir, "..", "data", "yaml-test-suite", "src")
-		if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
-			log.Fatalf("YAML test suite directory does not exist: %s", yamlDir)
-		}
+		log.Fatalf("YAML test suite directory does not exist: %s", yamlDir)
 	}
 
 	fmt.Printf("Scanning YAML files in: %s\n", yamlDir)
