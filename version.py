@@ -44,9 +44,47 @@ HEADER = Path(__file__).parent / "yyaml/yyaml.h"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Manage YYAML version")
-    parser.add_argument("part", nargs="?", help="major | minor | patch | X.Y.Z")
-    parser.add_argument("value", nargs="?", help="number | +N | -N")
+
+    parser = argparse.ArgumentParser(
+        prog="version.py",
+        description="YYAML version management tool",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""Examples:
+    python version.py
+        Show full version
+
+    python version.py minor
+        Show minor version value
+
+    python version.py minor 2
+        Set minor version to 2
+
+    python version.py patch +1
+        Increment patch version
+
+    python version.py major -1
+        Decrement major version
+
+    python version.py 1.2.3
+    python version.py v1.2.3
+        Set full semantic version
+    """
+    )
+
+    parser.add_argument(
+        "part",
+        nargs="?",
+        metavar="PART",
+        help="major | minor | patch | X.Y.Z",
+    )
+
+    parser.add_argument(
+        "value",
+        nargs="?",
+        metavar="VALUE",
+        help="N (set) | +N (increment) | -N (decrement)",
+    )
+
     args = parser.parse_args()
 
     if not HEADER.exists():
