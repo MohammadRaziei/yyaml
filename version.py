@@ -1,4 +1,40 @@
 #!/usr/bin/env python3
+"""
+YYAML Version Manager
+
+A lightweight version management tool for the YYAML C library.
+This script updates version macros inside `yyaml/yyaml.h`.
+
+Repository:
+    https://github.com/mohammadraziei/yyaml
+
+Author:
+    Mohammad Raziei
+
+License:
+    MIT License
+    SPDX-License-Identifier: MIT
+
+
+Usage:
+    python version.py
+        Show full version (e.g. 0.1.0)
+
+    python version.py major|minor|patch
+        Show specific part value
+
+    python version.py major|minor|patch N
+        Set part to N
+
+    python version.py major|minor|patch +N|-N
+        Increment or decrement part
+
+    python version.py X.Y.Z
+        Set full semantic version (e.g. 1.2.3 or v1.2.3)
+
+For more details:
+    python version.py --help
+"""
 
 import re
 import argparse
