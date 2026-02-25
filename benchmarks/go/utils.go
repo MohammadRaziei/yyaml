@@ -147,19 +147,17 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 	}
 
 	// Manual margins: left 200, right 20, top 30, bottom 10
-	leftMargin := 200
-	rightMargin := 80
+	leftMargin := 150
+	rightMargin := 90
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 30
-	height := 320
+	height := 280
+	width := 600
 
-	// Scale maxVal to achieve width = 800
-	targetWidth := 800
-	availableWidth := targetWidth - leftMargin - rightMargin
+	// Scale maxVal to achieve width
+	availableWidth := width - leftMargin - rightMargin
 	scaleFactor := float64(availableWidth) / maxVal
-
-	width := targetWidth
 
 	var svg strings.Builder
 	svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, width, height))
@@ -201,11 +199,12 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 // createCombinedSVG creates a combined SVG horizontal bar chart for all operations
 func createCombinedSVG(results []BenchmarkResult, operations map[string][]BenchmarkResult) string {
 	// Manual margins: left 200, right 20, top 30, bottom 10
-	leftMargin := 250
-	rightMargin := 100
+	leftMargin := 200
+	rightMargin := 120
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 25
+	width := 800
 
 	// Colors for different operations
 	colors := []string{"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"}
@@ -236,15 +235,13 @@ func createCombinedSVG(results []BenchmarkResult, operations map[string][]Benchm
 		}
 	}
 
-	// Scale maxVal to achieve width = 800
-	targetWidth := 800
-	availableWidth := targetWidth - leftMargin - rightMargin
+	// Scale maxVal to achieve width
+	availableWidth := width - leftMargin - rightMargin
 	scaleFactor := float64(availableWidth) / maxVal
 
 	// Calculate needed height based on number of libraries
 	numLibraries := len(libraries)
 	height := topMargin + 100 + numLibraries*(barHeight*len(opNames)+40) + bottomMargin
-	width := targetWidth
 
 	var svg strings.Builder
 	svg.WriteString(fmt.Sprintf(`<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">`, width, height))
