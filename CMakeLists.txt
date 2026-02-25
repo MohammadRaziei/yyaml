@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.10)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-# include(PyProject)
-# include(DynamicVersion)
-project(yyaml VERSION 1.0.0 LANGUAGES C CXX)
+include(PyProject)
+include(DynamicVersion)
+
+extract_version_string(
+    HEADER_FILE "${CMAKE_CURRENT_SOURCE_DIR}/yyaml/yyaml.h"
+    VERSION_PREFIX "YYAML_"
+    OUTPUT_VAR PROJECT_VERSION
+)
+
+project(yyaml VERSION ${PROJECT_VERSION} LANGUAGES C CXX)
+message(STATUS "Project: ${PROJECT_NAME}@v${PROJECT_VERSION}")
 
 include(Startup)
 
