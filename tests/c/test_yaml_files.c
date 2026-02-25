@@ -530,3 +530,71 @@ UTEST(yyaml_file_tests, test_read_all_data_files) {
     // Clean up file list
     free_file_list(files, file_count);
 }
+
+// Test roundtrip for all YAML files in data directory
+UTEST(yyaml_file_tests, test_roundtrip_all_data_files) {
+    // Get data directory path
+#ifdef YYAML_TEST_DATA_DIR
+    const char* data_dir = YYAML_TEST_DATA_DIR;
+#else
+    // Fallback: build path relative to this file
+    char data_dir[4096];
+    build_full_path(data_dir, sizeof(data_dir), "../tests/data");
+#endif
+    
+    printf("Scanning data directory for roundtrip tests: %s\n", data_dir);
+    
+    // Use our platform-independent function to list files
+    size_t file_count = 0;
+    char** files = list_files_in_directory(data_dir, ".yaml", &file_count);
+    
+    ASSERT_TRUE(files != NULL);
+    ASSERT_TRUE(file_count > 0);
+    
+    // Process each file
+    for (size_t i = 0; i < file_count; i++) {
+        printf("Testing roundtrip for file: %s\n", files[i]);
+        
+        // Build full path
+        char file_path[4096];
+        ASSERT_TRUE(snprintf(file_path, sizeof(file_path), "%s/%s", data_dir, files[i]) >= 0);
+        
+        // Read YAML file
+        char* yaml_content = read_file(file_path);
+        ASSERT_TRUE(yaml_content != NULL);
+        
+        // First parse using yyaml_read
+        yyaml_doc *doc = NULL;
+        yyaml_err err = {0};
+        doc = yyaml_read(yaml_content, strlen(yaml_content), NULL, &err);
+        ASSERT_TRUE(doc != NULL);
+        
+        const yyaml_node *root = yyaml_doc_get_root(doc);
+        if (strlen(yaml_content) > 0) {
+            ASSERT_TRUE(root != NULL);
+        }
+        
+        // Write to string using yyaml_write
+        char* output = NULL;
+        size_t output_len = 0;
+        bool result = yyaml_write(root, &output, &output_len, NULL, &err);
+        ASSERT_TRUE(result);
+        ASSERT_TRUE(output != NULL);
+        
+        // Parse again to verify
+        yyaml_doc* doc2 = yyaml_read(output, output_len, NULL, &err);
+        ASSERT_TRUE(doc2 != NULL);
+        
+        // Log success for debugging
+        printf("Successfully roundtripped %s\n", files[i]);
+        
+        // Clean up
+        yyaml_doc_free(doc2);
+        yyaml_free_string(output);
+        yyaml_doc_free(doc);
+        free(yaml_content);
+    }
+    
+    // Clean up file list
+    free_file_list(files, file_count);
+}

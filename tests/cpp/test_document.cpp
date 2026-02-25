@@ -409,3 +409,60 @@ UTEST(cpp_tests, test_read_all_data_files) {
         }
     }
 }
+
+// Test roundtrip for all YAML files in data directory
+UTEST(cpp_tests, test_roundtrip_all_data_files) {
+    std::string data_dir = get_test_data_dir();
+    std::cout << "Scanning data directory for roundtrip tests: " << data_dir << std::endl;
+    
+    // Check if directory exists
+    ASSERT_TRUE(std::filesystem::exists(data_dir));
+    
+    // Collect all .yaml files
+    std::vector<std::filesystem::path> yaml_files;
+    for (const auto& entry : std::filesystem::directory_iterator(data_dir)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".yaml") {
+            yaml_files.push_back(entry.path());
+        }
+    }
+    
+    ASSERT_TRUE(!yaml_files.empty());
+    
+    // Process each file
+    for (const auto& file_path : yaml_files) {
+        std::string filename = file_path.filename().string();
+        std::cout << "Testing roundtrip for file: " << filename << std::endl;
+        
+        // Read file content
+        std::string yaml_content = read_file(file_path.string());
+        ASSERT_TRUE(!yaml_content.empty());
+        
+        try {
+            // First parse using yyaml::document::parse
+            auto doc = yyaml::document::parse(yaml_content);
+            ASSERT_TRUE(doc.valid());
+            
+            auto root = doc.root();
+            if (!yaml_content.empty()) {
+                ASSERT_TRUE(root.is_valid());
+            }
+            
+            // Write to string using dump()
+            std::string output = doc.dump();
+            ASSERT_TRUE(!output.empty());
+            
+            // Parse again to verify
+            auto doc2 = yyaml::document::parse(output);
+            ASSERT_TRUE(doc2.valid());
+            
+            // Log success for debugging
+            std::cout << "Successfully roundtripped " << filename << std::endl;
+            
+        } catch (const yyaml::yyaml_error& e) {
+            // If parsing fails, the test should fail
+            std::cerr << "Roundtrip error for " << filename << ": " << e.what() 
+                      << " (line " << e.line << ", column " << e.column << ")" << std::endl;
+            ASSERT_TRUE(false && "Failed to roundtrip YAML file");
+        }
+    }
+}

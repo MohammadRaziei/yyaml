@@ -240,3 +240,55 @@ func TestUnmarshalData(t *testing.T) {
 		})
 	}
 }
+
+func TestRoundtripData(t *testing.T) {
+	// Define test files pattern
+	entries, err := os.ReadDir("../data")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var testFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
+			testFiles = append(testFiles, filepath.Join("../data", entry.Name()))
+		}
+	}
+
+	for _, filePath := range testFiles {
+		t.Run(filePath, func(t *testing.T) {
+			// Read YAML file
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Roundtrip error (reading file) for %s: %v", filePath, err)
+				return
+			}
+
+			// First unmarshal
+			var parsed interface{}
+			err = yyaml.Unmarshal(data, &parsed)
+			if err != nil {
+				t.Fatalf("Roundtrip error (first unmarshal) for %s: %v", filePath, err)
+				return
+			}
+
+			// Marshal back to YAML
+			marshaled, err := yyaml.Marshal(parsed)
+			if err != nil {
+				t.Fatalf("Roundtrip error (marshal) for %s: %v", filePath, err)
+				return
+			}
+
+			// Parse again to verify
+			var parsed2 interface{}
+			err = yyaml.Unmarshal(marshaled, &parsed2)
+			if err != nil {
+				t.Fatalf("Roundtrip error (second unmarshal) for %s: %v", filePath, err)
+				return
+			}
+
+			// Log success for debugging
+			t.Logf("Successfully roundtripped %s", filePath)
+		})
+	}
+}
