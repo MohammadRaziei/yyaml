@@ -888,6 +888,12 @@ YYAML_API yyaml_doc *yyaml_read(const char *data, size_t len,
         content_start = pos;
         while (pos < len && data[pos] != '\n' && data[pos] != '\r') {
             ch = data[pos];
+            if (in_double && ch == '\\' && pos + 1 < len &&
+                data[pos + 1] != '\n' && data[pos + 1] != '\r') {
+                pos += 2;
+                col += 2;
+                continue;
+            }
             if (ch == '\'' && !in_double) in_single = !in_single;
             else if (ch == '"' && !in_single) in_double = !in_double;
             else if (ch == '#' && !in_single && !in_double) break;
@@ -1837,16 +1843,22 @@ static bool yyaml_writer_write_sequence(const yyaml_doc *doc,
         if (!(inline_first && first)) {
             if (!yyaml_writer_indent(wr, indent, depth)) return false;
         }
-        if (!yyaml_writer_write(wr, "- ", 2)) return false;
         if (child->type == YYAML_SEQUENCE) {
-            if (!yyaml_writer_write_sequence(doc, child, depth + 1, indent, wr,
-                                             err, true))
-                return false;
+            if (child->child == YYAML_INDEX_NONE) {
+                if (!yyaml_writer_write(wr, "- []", 4)) return false;
+            } else {
+                if (!yyaml_writer_write(wr, "-\n", 2)) return false;
+                if (!yyaml_writer_write_sequence(doc, child, depth + 1, indent, wr,
+                                                 err, false))
+                    return false;
+            }
         } else if (child->type == YYAML_MAPPING) {
+            if (!yyaml_writer_write(wr, "- ", 2)) return false;
             if (!yyaml_writer_write_mapping(doc, child, depth + 1, indent, wr,
                                             err, true))
                 return false;
         } else {
+            if (!yyaml_writer_write(wr, "- ", 2)) return false;
             if (!yyaml_write_node_internal(doc, child, depth + 1, indent, wr,
                                            err))
                 return false;
