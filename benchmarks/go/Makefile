@@ -10,7 +10,7 @@ all: build run
 build:
 	@echo "Building benchmark..."
 	@mkdir -p build
-	@CGO_CFLAGS="-O3 -flto" go build -trimpath -ldflags="-s -w" -o ${PWD}/build/benchmark_app ${PWD}/benchmark.go
+	@CGO_CFLAGS="-O3 -flto" go build -trimpath -ldflags="-s -w" -o ${PWD}/build/benchmark_app .
 	@echo "Build complete: ${PWD}/build/benchmark_app"
 
 # Run the benchmark
