@@ -198,6 +198,20 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 
 			// Parse again to verify
 			_, err = lib.Unmarshal(marshaled)
+			// parsed2, err := lib.Unmarshal(marshaled)
+			// if err != nil {
+			// 	errors++
+			// 	continue
+			// }
+
+			// // Convert both to JSON for comparison (deep equality check)
+			// json1, err1 := json.Marshal(parsed)
+			// json2, err2 := json.Marshal(parsed2)
+			// if err1 != nil || err2 != nil || string(json1) != string(json2) {
+			// 	errors++
+			// 	log.Printf("Roundtrip data mismatch for file %s with %s", file, lib.Name())
+			// 	continue
+			// }
 		}
 
 		if err != nil {
