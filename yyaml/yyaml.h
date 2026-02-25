@@ -3,14 +3,50 @@
 
 /**
  * @file yyaml.h
- * @brief C API for the yyaml parser and writer.
+ * @brief Fast, lightweight YAML parser & writer in pure C.
  *
- * yyaml implements a fast, DOM-style YAML parser for a pragmatic subset of
- * YAML 1.2 that mirrors JSON features together with basic indentation-based
- * collections. It is designed to be completely standalone, requiring only the
- * C standard library. The API follows the general style of yyjson so existing
- * yyjson users can get started quickly.
+ * @author Mohammad Raziei
+ *
+ * @details
+ *                             _
+ *  _   _ _   _  __ _ _ __ ___ | |
+ * | | | | | | |/ _` | '_ ` _ \| |
+ * | |_| | |_| | (_| | | | | | | |
+ *  \__, |\__, |\__,_|_| |_| |_|_|
+ *  |___/ |___/
+ *
+ *  yyaml implements a pragmatic subset of YAML 1.2 focused on
+ *  JSON-compatible data structures (mappings, sequences, scalars)
+ *  using indentation-based collections.
+ *
+ *  The API design follows the style of yyjson, providing a familiar
+ *  DOM-style interface while remaining fully standalone and dependent
+ *  only on the C standard library.
+ *
+ *  Repository:
+ *      https://github.com/mohammadraziei/yyaml
+ *
+ * @copyright
+ *  Copyright (c) 2026 Mohammad Raziei
+ *
+ * @license
+ *  MIT License
+ *
+ *  SPDX-License-Identifier: MIT
  */
+
+#define YYAML_VERSION_MAJOR 0
+#define YYAML_VERSION_MINOR 1
+#define YYAML_VERSION_PATCH 0
+
+#define YYAML_VERSION_ENCODE(major, minor, patch) (((major) * 10000) + ((minor) * 100) + ((patch) * 1))
+#define YYAML_VERSION YYAML_VERSION_ENCODE(YYAML_VERSION_MAJOR, YYAML_VERSION_MINOR, YYAML_VERSION_PATCH)
+
+#define YYAML_VERSION_XSTRINGIZE(major, minor, patch) #major"."#minor"."#patch
+#define YYAML_VERSION_STRINGIZE(major, minor, patch) YYAML_VERSION_XSTRINGIZE(major, minor, patch)
+#define YYAML_VERSION_STRING YYAML_VERSION_STRINGIZE(YYAML_VERSION_MAJOR, YYAML_VERSION_MINOR, YYAML_VERSION_PATCH)
+
+
 
 #include <stddef.h>
 #include <stdint.h>
