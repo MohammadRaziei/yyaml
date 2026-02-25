@@ -1,9 +1,42 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "Cloning yaml-test-suite into $SCRIPT_DIR ..."
+# -----------------------------------------
+# Function
+# -----------------------------------------
+run_if_not_exists() {
+    local folder_name="$1"
+    local command_template="$2"
 
-git clone https://github.com/yaml/yaml-test-suite.git "$SCRIPT_DIR/yaml-test-suite"
+    local full_path="$SCRIPT_DIR/$folder_name"
 
-echo "Done!"
+    if [ -d "$full_path" ]; then
+        echo "📁 '$folder_name' already exists → Skipping"
+    else
+        echo "🚀 Executing for '$folder_name'..."
+
+        local command="${command_template//\{\}/$full_path}"
+
+        echo "👉 $command"
+        eval "$command"
+
+        echo "✅ Done"
+    fi
+
+    echo "--------------------------------------"
+}
+
+# -----------------------------------------
+# Usage
+# -----------------------------------------
+
+run_if_not_exists "yaml-test-suite" \
+    "git clone --depth=1 https://github.com/yaml/yaml-test-suite.git {}"
+
+run_if_not_exists "apis-guru-openapi-directory" \
+    "git clone --depth=1 https://github.com/APIs-guru/openapi-directory.git {}"
+
+echo "🎉 All tasks finished!"
