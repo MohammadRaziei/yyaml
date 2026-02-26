@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -150,7 +149,7 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 	errors := 0
 
 	for _, file := range files {
-		data, err := ioutil.ReadFile(file)
+		data, err := os.ReadFile(file)
 		if err != nil {
 			log.Printf("Error reading file %s: %v", file, err)
 			errors++
@@ -268,6 +267,101 @@ func printResults(results []BenchmarkResult) {
 	fmt.Println(strings.Repeat("=", 100))
 }
 
+
+// generateSummary generates a markdown summary with embedded SVG plots
+func generateSummary(results []BenchmarkResult, files []string) {
+	// Create output directory
+	if err := os.MkdirAll("output", 0755); err != nil {
+		log.Printf("Error creating output directory: %v", err)
+	}
+
+	summary := "# YAML Library Benchmark Results\n\n"
+	summary += fmt.Sprintf("**Date:** %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	summary += fmt.Sprintf("**Total Files:** %d\n", len(files))
+	summary += fmt.Sprintf("**Go Version:** %s\n\n", runtime.Version())
+
+	// Group by operation
+	operations := make(map[string][]BenchmarkResult)
+	for _, r := range results {
+		operations[r.Operation] = append(operations[r.Operation], r)
+	}
+
+	// Generate markdown with embedded SVG
+	for op, opResults := range operations {
+		// Sort by total time (fastest first)
+		sort.Slice(opResults, func(i, j int) bool {
+			return opResults[i].TotalTime < opResults[j].TotalTime
+		})
+
+		summary += fmt.Sprintf("## %s\n\n", strings.ToUpper(op))
+
+		// Generate and embed SVG plot
+		svgContent := createSimpleSVG(opResults, op)
+		// Embed SVG directly in markdown with caption
+		summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n", svgContent)
+		summary += fmt.Sprintf("<p align=\"center\"><em>Figure: %s performance comparison across YAML libraries</em></p>\n\n", strings.ToUpper(op))
+
+		summary += "| Library | Total Time | Avg Time | Success | Errors | Throughput |\n"
+		summary += "|---------|------------|----------|---------|--------|------------|\n"
+
+		for _, r := range opResults {
+			summary += fmt.Sprintf("| %s | %v | %v | %d | %d | %.2f files/s |\n",
+				r.Library,
+				r.TotalTime.Round(time.Millisecond),
+				r.AvgTime.Round(time.Microsecond),
+				r.SuccessCount,
+				r.ErrorCount,
+				r.Throughput)
+		}
+		summary += "\n"
+	}
+
+	// Add combined comparison section
+	summary += "## Combined Performance Comparison\n\n"
+
+	// Generate combined SVG plot
+	combinedSVG := createCombinedSVG(results, operations)
+	summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n\n", combinedSVG)
+
+	// Add performance comparison tables
+	summary += "## Performance Comparison\n\n"
+
+	for op, opResults := range operations {
+		if len(opResults) < 2 {
+			continue
+		}
+
+		sort.Slice(opResults, func(i, j int) bool {
+			return opResults[i].TotalTime < opResults[j].TotalTime
+		})
+
+		fastest := opResults[0]
+		summary += fmt.Sprintf("### %s\n\n", strings.ToUpper(op))
+		summary += fmt.Sprintf("**Fastest:** %s (%v)\n\n", fastest.Library, fastest.TotalTime.Round(time.Millisecond))
+		summary += "| Library | Relative Speed | Difference |\n"
+		summary += "|---------|----------------|------------|\n"
+
+		for i, r := range opResults {
+			if i == 0 {
+				summary += fmt.Sprintf("| %s | 1.00x | - |\n", r.Library)
+			} else {
+				relative := float64(r.TotalTime) / float64(fastest.TotalTime)
+				diff := r.TotalTime - fastest.TotalTime
+				summary += fmt.Sprintf("| %s | %.2fx | +%v |\n",
+					r.Library, relative, diff.Round(time.Millisecond))
+			}
+		}
+		summary += "\n"
+	}
+
+	outputPath := "output/BENCHMARK_SUMMARY.md"
+	if err := os.WriteFile(outputPath, []byte(summary), 0644); err != nil {
+		log.Printf("Error writing summary: %v", err)
+	} else {
+		fmt.Printf("Summary saved to: %s\n", outputPath)
+	}
+}
+
 func main() {
 	// Get the executable path to calculate relative paths
 	exePath, err := os.Executable()
@@ -352,7 +446,7 @@ func main() {
 		log.Printf("Error marshaling results to JSON: %v", err)
 	} else {
 		outputPath := "output/benchmark_results.json"
-		if err := ioutil.WriteFile(outputPath, jsonData, 0644); err != nil {
+		if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
 			log.Printf("Error writing results to file: %v", err)
 		} else {
 			fmt.Printf("\nResults saved to: %s\n", outputPath)
