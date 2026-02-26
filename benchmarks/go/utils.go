@@ -152,7 +152,7 @@ func createSimpleSVG(results []BenchmarkResult, operation string) string {
 	topMargin := 30
 	bottomMargin := 10
 	barHeight := 30
-	height := 280
+	height := 500
 	width := 600
 
 	// Scale maxVal to achieve width
