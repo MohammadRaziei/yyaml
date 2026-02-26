@@ -12,9 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goccy/go-yaml"
+	shopifyyaml "github.com/Shopify/yaml"
+	ghodssyaml "github.com/ghodss/yaml"
+	goyaml "github.com/go-yaml/yaml"
+	goccyyaml "github.com/goccy/go-yaml"
+	gypsyyaml "github.com/kylelemons/go-gypsy/yaml"
 	yyaml "github.com/mohammadraziei/yyaml"
-	goyaml "gopkg.in/yaml.v3"
+	k8syaml "sigs.k8s.io/yaml"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 type BenchmarkResult struct {
@@ -41,12 +46,12 @@ func (y *YAMLv3) Name() string { return "gopkg.in/yaml.v3" }
 
 func (y *YAMLv3) Unmarshal(data []byte) (interface{}, error) {
 	var result interface{}
-	err := goyaml.Unmarshal(data, &result)
+	err := yamlv3.Unmarshal(data, &result)
 	return result, err
 }
 
 func (y *YAMLv3) Marshal(data interface{}) ([]byte, error) {
-	return goyaml.Marshal(data)
+	return yamlv3.Marshal(data)
 }
 
 // GoCcy YAML implementation
@@ -56,12 +61,12 @@ func (g *GoCcyYAML) Name() string { return "github.com/goccy/go-yaml" }
 
 func (g *GoCcyYAML) Unmarshal(data []byte) (interface{}, error) {
 	var result interface{}
-	err := yaml.Unmarshal(data, &result)
+	err := goccyyaml.Unmarshal(data, &result)
 	return result, err
 }
 
 func (g *GoCcyYAML) Marshal(data interface{}) ([]byte, error) {
-	return yaml.Marshal(data)
+	return goccyyaml.Marshal(data)
 }
 
 // YYAML implementation (our library)
@@ -79,6 +84,85 @@ func (y *YYAML) Marshal(data interface{}) ([]byte, error) {
 	return yyaml.Marshal(data)
 }
 
+// GoYAML implementation (github.com/go-yaml/yaml)
+type GoYAML struct{}
+
+func (g *GoYAML) Name() string { return "github.com/go-yaml/yaml" }
+
+func (g *GoYAML) Unmarshal(data []byte) (interface{}, error) {
+	var result interface{}
+	err := goyaml.Unmarshal(data, &result)
+	return result, err
+}
+
+func (g *GoYAML) Marshal(data interface{}) ([]byte, error) {
+	return goyaml.Marshal(data)
+}
+
+// K8sYAML implementation (sigs.k8s.io/yaml)
+type K8sYAML struct{}
+
+func (k *K8sYAML) Name() string { return "sigs.k8s.io/yaml" }
+
+func (k *K8sYAML) Unmarshal(data []byte) (interface{}, error) {
+	var result interface{}
+	err := k8syaml.Unmarshal(data, &result)
+	return result, err
+}
+
+func (k *K8sYAML) Marshal(data interface{}) ([]byte, error) {
+	return k8syaml.Marshal(data)
+}
+
+// GhodssYAML implementation (github.com/ghodss/yaml)
+type GhodssYAML struct{}
+
+func (g *GhodssYAML) Name() string { return "github.com/ghodss/yaml" }
+
+func (g *GhodssYAML) Unmarshal(data []byte) (interface{}, error) {
+	var result interface{}
+	err := ghodssyaml.Unmarshal(data, &result)
+	return result, err
+}
+
+func (g *GhodssYAML) Marshal(data interface{}) ([]byte, error) {
+	return ghodssyaml.Marshal(data)
+}
+
+// GypsyYAML implementation (github.com/kylelemons/go-gypsy/yaml)
+type GypsyYAML struct{}
+
+func (g *GypsyYAML) Name() string { return "github.com/kylelemons/go-gypsy/yaml" }
+
+func (g *GypsyYAML) Unmarshal(data []byte) (interface{}, error) {
+	// gypsy uses Parse which takes an io.Reader
+	node, err := gypsyyaml.Parse(strings.NewReader(string(data)))
+	return node, err
+}
+
+func (g *GypsyYAML) Marshal(data interface{}) ([]byte, error) {
+	// gypsy uses Render which takes a Node and returns a string
+	if node, ok := data.(gypsyyaml.Node); ok {
+		return []byte(gypsyyaml.Render(node)), nil
+	}
+	return nil, fmt.Errorf("invalid data type for gypsy marshal: %T", data)
+}
+
+// ShopifyYAML implementation (github.com/Shopify/yaml)
+type ShopifyYAML struct{}
+
+func (s *ShopifyYAML) Name() string { return "github.com/Shopify/yaml" }
+
+func (s *ShopifyYAML) Unmarshal(data []byte) (interface{}, error) {
+	var result interface{}
+	err := shopifyyaml.Unmarshal(data, &result)
+	return result, err
+}
+
+func (s *ShopifyYAML) Marshal(data interface{}) ([]byte, error) {
+	return shopifyyaml.Marshal(data)
+}
+
 func runBenchmark(lib LibraryBenchmark, files []string, operation string) BenchmarkResult {
 	start := time.Now()
 	success := 0
@@ -92,42 +176,49 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 			continue
 		}
 
-		if operation == "unmarshal" {
-			_, err = lib.Unmarshal(data)
-		} else if operation == "marshal" {
-			// First unmarshal to get data structure
-			parsed, err := lib.Unmarshal(data)
-			if err != nil {
-				errors++
-				continue
-			}
+		// Use a closure to handle panics
+		processFile := func() (err error) {
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic recovered: %v", r)
+				}
+			}()
 
-			// Then marshal it back
-			_, err = lib.Marshal(parsed)
-		} else if operation == "roundtrip" {
-			parsed, err := lib.Unmarshal(data)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (first unmarshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
-			}
+			if operation == "unmarshal" {
+				_, err = lib.Unmarshal(data)
+			} else if operation == "marshal" {
+				// First unmarshal to get data structure
+				parsed, err := lib.Unmarshal(data)
+				if err != nil {
+					return err
+				}
 
-			marshaled, err := lib.Marshal(parsed)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (marshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
-			}
+				// Then marshal it back
+				_, err = lib.Marshal(parsed)
+			} else if operation == "roundtrip" {
+				parsed, err := lib.Unmarshal(data)
+				if err != nil {
+					log.Printf("Roundtrip error (first unmarshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
 
-			// Parse again to verify
-			_, err = lib.Unmarshal(marshaled)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (second unmarshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
+				marshaled, err := lib.Marshal(parsed)
+				if err != nil {
+					log.Printf("Roundtrip error (marshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
+
+				// Parse again to verify
+				_, err = lib.Unmarshal(marshaled)
+				if err != nil {
+					log.Printf("Roundtrip error (second unmarshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
 			}
+			return err
 		}
 
+		err = processFile()
 		if err != nil {
 			errors++
 			log.Printf("Error processing file %s with %s: %v", file, lib.Name(), err)
@@ -249,6 +340,11 @@ func main() {
 		&YAMLv3{},
 		&GoCcyYAML{},
 		&YYAML{},
+		&GoYAML{},
+		&K8sYAML{},
+		&GhodssYAML{},
+		&GypsyYAML{},
+		&ShopifyYAML{},
 	}
 
 	operations := []string{"unmarshal", "marshal", "roundtrip"}
