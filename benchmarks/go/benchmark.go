@@ -143,12 +143,27 @@ func (s *ShopifyYAML) Marshal(data interface{}) ([]byte, error) {
 	return shopifyyaml.Marshal(data)
 }
 
+// showProgress displays a simple tqdm-like progress indicator
+func showProgress(current, total int, prefix string) {
+	percent := float64(current) / float64(total) * 100
+	barLen := 30
+	filled := int(percent / 100 * float64(barLen))
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barLen-filled)
+	fmt.Printf("\r%s [%s] %3.0f%% (%d/%d)", prefix, bar, percent, current, total)
+	if current == total {
+		fmt.Printf("\n")
+	}
+}
+
 func runBenchmark(lib LibraryBenchmark, files []string, operation string) BenchmarkResult {
 	start := time.Now()
 	success := 0
 	errors := 0
 
-	for _, file := range files {
+	for i, file := range files {
+		// Show progress for each file processed
+		showProgress(i+1, len(files), fmt.Sprintf("  [%s/%s] %s", lib.Name(), operation, filepath.Base(file)))
+
 		data, err := os.ReadFile(file)
 		if err != nil {
 			log.Printf("Error reading file %s: %v", file, err)
@@ -269,16 +284,10 @@ func printResults(results []BenchmarkResult) {
 
 
 // generateSummary generates a markdown summary with embedded SVG plots
-func generateSummary(results []BenchmarkResult, files []string) {
-	// Create output directory
-	if err := os.MkdirAll("output", 0755); err != nil {
-		log.Printf("Error creating output directory: %v", err)
-	}
-
-	summary := "# YAML Library Benchmark Results\n\n"
+func generateSummary(results []BenchmarkResult, files []string, datasetName string) string {
+	summary := fmt.Sprintf("## %s\n\n", datasetName)
 	summary += fmt.Sprintf("**Date:** %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	summary += fmt.Sprintf("**Total Files:** %d\n", len(files))
-	summary += fmt.Sprintf("**Go Version:** %s\n\n", runtime.Version())
+	summary += fmt.Sprintf("**Total Files:** %d\n\n", len(files))
 
 	// Group by operation
 	operations := make(map[string][]BenchmarkResult)
@@ -286,20 +295,13 @@ func generateSummary(results []BenchmarkResult, files []string) {
 		operations[r.Operation] = append(operations[r.Operation], r)
 	}
 
-	// Generate markdown with embedded SVG
+	// Generate markdown content for each operation
 	for op, opResults := range operations {
-		// Sort by total time (fastest first)
 		sort.Slice(opResults, func(i, j int) bool {
 			return opResults[i].TotalTime < opResults[j].TotalTime
 		})
 
-		summary += fmt.Sprintf("## %s\n\n", strings.ToUpper(op))
-
-		// Generate and embed SVG plot
-		svgContent := createSimpleSVG(opResults, op)
-		// Embed SVG directly in markdown with caption
-		summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n", svgContent)
-		summary += fmt.Sprintf("<p align=\"center\"><em>Figure: %s performance comparison across YAML libraries</em></p>\n\n", strings.ToUpper(op))
+		summary += fmt.Sprintf("### %s\n\n", strings.ToUpper(op))
 
 		summary += "| Library | Total Time | Avg Time | Success | Errors | Throughput |\n"
 		summary += "|---------|------------|----------|---------|--------|------------|\n"
@@ -315,51 +317,8 @@ func generateSummary(results []BenchmarkResult, files []string) {
 		}
 		summary += "\n"
 	}
-
-	// Add combined comparison section
-	summary += "## Combined Performance Comparison\n\n"
-
-	// Generate combined SVG plot
-	combinedSVG := createCombinedSVG(results, operations)
-	summary += fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n\n", combinedSVG)
-
-	// Add performance comparison tables
-	summary += "## Performance Comparison\n\n"
-
-	for op, opResults := range operations {
-		if len(opResults) < 2 {
-			continue
-		}
-
-		sort.Slice(opResults, func(i, j int) bool {
-			return opResults[i].TotalTime < opResults[j].TotalTime
-		})
-
-		fastest := opResults[0]
-		summary += fmt.Sprintf("### %s\n\n", strings.ToUpper(op))
-		summary += fmt.Sprintf("**Fastest:** %s (%v)\n\n", fastest.Library, fastest.TotalTime.Round(time.Millisecond))
-		summary += "| Library | Relative Speed | Difference |\n"
-		summary += "|---------|----------------|------------|\n"
-
-		for i, r := range opResults {
-			if i == 0 {
-				summary += fmt.Sprintf("| %s | 1.00x | - |\n", r.Library)
-			} else {
-				relative := float64(r.TotalTime) / float64(fastest.TotalTime)
-				diff := r.TotalTime - fastest.TotalTime
-				summary += fmt.Sprintf("| %s | %.2fx | +%v |\n",
-					r.Library, relative, diff.Round(time.Millisecond))
-			}
-		}
-		summary += "\n"
-	}
-
-	outputPath := "output/BENCHMARK_SUMMARY.md"
-	if err := os.WriteFile(outputPath, []byte(summary), 0644); err != nil {
-		log.Printf("Error writing summary: %v", err)
-	} else {
-		fmt.Printf("Summary saved to: %s\n", outputPath)
-	}
+	summary += "---\n\n"
+	return summary
 }
 
 func main() {
@@ -377,30 +336,20 @@ func main() {
 		}
 	}
 
-	// Try to find the data directory relative to the executable
-	// First try: from build directory (if running from build/)
-	yamlDir := filepath.Join(dataDir, "yaml-test-suite")
-	if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
-		log.Fatalf("YAML test suite directory does not exist: %s", yamlDir)
-	}
+	fmt.Printf("Scanning datasets in: %s\n", dataDir)
 
-	fmt.Printf("Scanning YAML files in: %s\n", yamlDir)
-
-	files, err := collectYAMLFiles(yamlDir)
+	// Read all subdirectories in dataDir
+	entries, err := os.ReadDir(dataDir)
 	if err != nil {
-		log.Fatalf("Error scanning YAML files: %v", err)
+		log.Fatalf("Error reading data directory: %v", err)
 	}
 
-	if len(files) == 0 {
-		log.Fatal("No YAML files found in the test suite directory")
-	}
-
-	fmt.Printf("Found %d YAML files for benchmarking\n", len(files))
-
-	// Limit to first 50 files for faster benchmarking
-	if len(files) > 50 {
-		fmt.Printf("Limiting to first 50 files for faster benchmarking\n")
-		files = files[:50]
+	// Filter and collect dataset directories
+	var datasets []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			datasets = append(datasets, entry.Name())
+		}
 	}
 
 	// Initialize libraries
@@ -416,43 +365,91 @@ func main() {
 
 	operations := []string{"unmarshal", "marshal", "roundtrip"}
 
-	var allResults []BenchmarkResult
-
-	fmt.Println("\nStarting benchmarks...")
-	fmt.Println(strings.Repeat("-", 100))
-
-	for _, lib := range libraries {
-		fmt.Printf("\nBenchmarking: %s\n", lib.Name())
-
-		for _, op := range operations {
-			fmt.Printf("  Running %s... ", op)
-			result := runBenchmark(lib, files, op)
-			allResults = append(allResults, result)
-			fmt.Printf("Done (Success: %d/%d, Time: %v)\n",
-				result.SuccessCount, result.TotalFiles, result.TotalTime.Round(time.Millisecond))
-		}
-	}
-
-	printResults(allResults)
-
 	// Create output directory
 	if err := os.MkdirAll("output", 0755); err != nil {
 		log.Printf("Error creating output directory: %v", err)
 	}
 
-	// Save results to JSON file
-	jsonData, err := json.MarshalIndent(allResults, "", "  ")
-	if err != nil {
-		log.Printf("Error marshaling results to JSON: %v", err)
-	} else {
-		outputPath := "output/benchmark_results.json"
-		if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
-			log.Printf("Error writing results to file: %v", err)
-		} else {
-			fmt.Printf("\nResults saved to: %s\n", outputPath)
+	// Start building the master README content
+	var readmeContent strings.Builder
+	readmeContent.WriteString("# YAML Library Benchmark Results\n\n")
+	readmeContent.WriteString(fmt.Sprintf("**Generated:** %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	readmeContent.WriteString(fmt.Sprintf("**Go Version:** %s\n\n", runtime.Version()))
+	readmeContent.WriteString("## System Information\n")
+	readmeContent.WriteString(fmt.Sprintf("- **OS:** %s\n", runtime.GOOS))
+	readmeContent.WriteString(fmt.Sprintf("- **Arch:** %s\n", runtime.GOARCH))
+	readmeContent.WriteString(fmt.Sprintf("- **CPU Cores:** %d\n\n", runtime.NumCPU()))
+	readmeContent.WriteString("## Results by Dataset\n\n")
+
+	// Progress over datasets
+	for dsIdx, datasetName := range datasets {
+		showProgress(dsIdx+1, len(datasets), "Dataset")
+
+		yamlDir := filepath.Join(dataDir, datasetName)
+
+		if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
+			continue
 		}
+
+		fmt.Printf("\n[%d/%d] Processing dataset: %s\n", dsIdx+1, len(datasets), datasetName)
+		fmt.Printf("Scanning YAML files in: %s\n", yamlDir)
+
+		files, err := collectYAMLFiles(yamlDir)
+		if err != nil {
+			log.Printf("Error scanning YAML files in %s: %v", datasetName, err)
+			continue
+		}
+
+		if len(files) == 0 {
+			log.Printf("No YAML files found in %s, skipping\n", datasetName)
+			continue
+		}
+
+		fmt.Printf("Found %d YAML files for benchmarking\n", len(files))
+
+		var allResults []BenchmarkResult
+
+		fmt.Println("\nStarting benchmarks...")
+		fmt.Println(strings.Repeat("-", 100))
+
+		for _, lib := range libraries {
+			fmt.Printf("\nBenchmarking: %s\n", lib.Name())
+
+			for _, op := range operations {
+				fmt.Printf("  Running %s... ", op)
+				result := runBenchmark(lib, files, op)
+				allResults = append(allResults, result)
+				fmt.Printf("Done (Success: %d/%d, Time: %v)\n",
+					result.SuccessCount, result.TotalFiles, result.TotalTime.Round(time.Millisecond))
+			}
+		}
+
+		printResults(allResults)
+
+		// Save results to JSON file for this dataset
+		jsonData, err := json.MarshalIndent(allResults, "", "  ")
+		if err != nil {
+			log.Printf("Error marshaling results to JSON: %v", err)
+		} else {
+			outputPath := fmt.Sprintf("output/%s_results.json", datasetName)
+			if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+				log.Printf("Error writing results to file: %v", err)
+			} else {
+				fmt.Printf("\nResults saved to: %s\n", outputPath)
+			}
+		}
+
+		// Append this dataset's summary to the master README
+		readmeContent.WriteString(generateSummary(allResults, files, datasetName))
 	}
 
-	// Generate summary markdown with embedded SVG
-	generateSummary(allResults, files)
+	fmt.Printf("\n")
+
+	// Write the unified README.md
+	readmePath := "output/README.md"
+	if err := os.WriteFile(readmePath, []byte(readmeContent.String()), 0644); err != nil {
+		log.Printf("Error writing README: %v", err)
+	} else {
+		fmt.Printf("Master README saved to: %s\n", readmePath)
+	}
 }
