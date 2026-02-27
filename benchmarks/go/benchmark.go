@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -171,43 +172,54 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 			continue
 		}
 
-		if operation == "unmarshal" {
-			_, err = lib.Unmarshal(data)
-		} else if operation == "marshal" {
-			// First unmarshal to get data structure
-			parsed, err := lib.Unmarshal(data)
-			if err != nil {
-				errors++
-				continue
-			}
+		// Process file with separate error handling function
+		processFile := func() (err error) {
+			// Add panic recovery for libraries that might panic
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("panic recovered: %v", r)
+				}
+			}()
 
-			// Then marshal it back
-			_, err = lib.Marshal(parsed)
-		} else if operation == "roundtrip" {
-			parsed, err := lib.Unmarshal(data)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (first unmarshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
-			}
+			if operation == "unmarshal" {
+				_, err := lib.Unmarshal(data)
+				return err
+			} else if operation == "marshal" {
+				// First unmarshal to get data structure
+				parsed, err := lib.Unmarshal(data)
+				if err != nil {
+					return err
+				}
 
-			marshaled, err := lib.Marshal(parsed)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (marshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
-			}
+				// Then marshal it back
+				_, err = lib.Marshal(parsed)
+				return err
+			} else if operation == "roundtrip" {
+				parsed, err := lib.Unmarshal(data)
+				if err != nil {
+					log.Printf("Roundtrip error (first unmarshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
 
-			// Parse again to verify
-			_, err = lib.Unmarshal(marshaled)
-			if err != nil {
-				errors++
-				log.Printf("Roundtrip error (second unmarshal) for file %s with %s: %v", file, lib.Name(), err)
-				continue
+				marshaled, err := lib.Marshal(parsed)
+				if err != nil {
+					log.Printf("Roundtrip error (marshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
+
+				// Parse again to verify
+				_, err = lib.Unmarshal(marshaled)
+				if err != nil {
+					log.Printf("Roundtrip error (second unmarshal) for file %s with %s: %v", file, lib.Name(), err)
+					return err
+				}
+				return nil
 			}
+			return nil
 		}
 
-		if err != nil {
+		// Execute the file processing and handle any errors
+		if err := processFile(); err != nil {
 			errors++
 			log.Printf("Error processing file %s with %s: %v", file, lib.Name(), err)
 		} else {
@@ -322,6 +334,22 @@ func generateSummary(results []BenchmarkResult, files []string, datasetName stri
 }
 
 func main() {
+	// Create output directory
+	if err := os.MkdirAll("output", 0755); err != nil {
+		log.Printf("Error creating output directory: %v", err)
+	}
+
+	// Create error log file
+	errorLogFile, err := os.OpenFile("output/error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("Error creating error log file: %v", err)
+	} else {
+		defer errorLogFile.Close()
+		// Create multi-writer for log: both stderr and file
+		multiWriter := io.MultiWriter(os.Stderr, errorLogFile)
+		log.SetOutput(multiWriter)
+	}
+
 	// Get the executable path to calculate relative paths
 	exePath, err := os.Executable()
 	if err != nil {
@@ -354,9 +382,9 @@ func main() {
 
 	// Initialize libraries
 	libraries := []LibraryBenchmark{
+		&YYAML{},
 		&YAMLv3{},
 		&GoCcyYAML{},
-		&YYAML{},
 		&GoYAML{},
 		&K8sYAML{},
 		&GhodssYAML{},
