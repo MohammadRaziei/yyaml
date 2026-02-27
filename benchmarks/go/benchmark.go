@@ -340,7 +340,7 @@ func main() {
 	}
 
 	// Create error log file
-	errorLogFile, err := os.OpenFile("output/error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	errorLogFile, err := os.OpenFile("output/error.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Printf("Error creating error log file: %v", err)
 	} else {
