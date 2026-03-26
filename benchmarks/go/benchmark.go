@@ -21,6 +21,7 @@ import (
 	yamlv3 "gopkg.in/yaml.v3"
 )
 
+// BenchmarkResult holds metrics for a single benchmark execution
 type BenchmarkResult struct {
 	Library      string
 	Operation    string
@@ -32,6 +33,7 @@ type BenchmarkResult struct {
 	Throughput   float64 // files per second
 }
 
+// LibraryBenchmark interface for YAML library implementations
 type LibraryBenchmark interface {
 	Name() string
 	Unmarshal(data []byte) (interface{}, error)
@@ -83,7 +85,7 @@ func (y *YYAML) Marshal(data interface{}) ([]byte, error) {
 	return yyaml.Marshal(data)
 }
 
-// GoYAML implementation (github.com/go-yaml/yaml)
+// GoYAML implementation
 type GoYAML struct{}
 
 func (g *GoYAML) Name() string { return "github.com/go-yaml/yaml" }
@@ -98,7 +100,7 @@ func (g *GoYAML) Marshal(data interface{}) ([]byte, error) {
 	return goyaml.Marshal(data)
 }
 
-// K8sYAML implementation (sigs.k8s.io/yaml)
+// K8sYAML implementation
 type K8sYAML struct{}
 
 func (k *K8sYAML) Name() string { return "sigs.k8s.io/yaml" }
@@ -113,7 +115,7 @@ func (k *K8sYAML) Marshal(data interface{}) ([]byte, error) {
 	return k8syaml.Marshal(data)
 }
 
-// GhodssYAML implementation (github.com/ghodss/yaml)
+// GhodssYAML implementation
 type GhodssYAML struct{}
 
 func (g *GhodssYAML) Name() string { return "github.com/ghodss/yaml" }
@@ -128,8 +130,7 @@ func (g *GhodssYAML) Marshal(data interface{}) ([]byte, error) {
 	return ghodssyaml.Marshal(data)
 }
 
-
-// ShopifyYAML implementation (github.com/Shopify/yaml)
+// ShopifyYAML implementation
 type ShopifyYAML struct{}
 
 func (s *ShopifyYAML) Name() string { return "github.com/Shopify/yaml" }
@@ -144,8 +145,11 @@ func (s *ShopifyYAML) Marshal(data interface{}) ([]byte, error) {
 	return shopifyyaml.Marshal(data)
 }
 
-// showProgress displays a simple tqdm-like progress indicator
+// showProgress displays a tqdm-like progress indicator
 func showProgress(current, total int, prefix string) {
+	if total == 0 {
+		return
+	}
 	percent := float64(current) / float64(total) * 100
 	barLen := 30
 	filled := int(percent / 100 * float64(barLen))
@@ -156,13 +160,13 @@ func showProgress(current, total int, prefix string) {
 	}
 }
 
+// runBenchmark executes benchmark for a library, files, and operation
 func runBenchmark(lib LibraryBenchmark, files []string, operation string) BenchmarkResult {
 	start := time.Now()
 	success := 0
 	errors := 0
 
 	for i, file := range files {
-		// Show progress for each file processed
 		showProgress(i+1, len(files), fmt.Sprintf("  [%s/%s] %s", lib.Name(), operation, filepath.Base(file)))
 
 		data, err := os.ReadFile(file)
@@ -172,9 +176,7 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 			continue
 		}
 
-		// Process file with separate error handling function
 		processFile := func() (err error) {
-			// Add panic recovery for libraries that might panic
 			defer func() {
 				if r := recover(); r != nil {
 					err = fmt.Errorf("panic recovered: %v", r)
@@ -185,40 +187,27 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 				_, err := lib.Unmarshal(data)
 				return err
 			} else if operation == "marshal" {
-				// First unmarshal to get data structure
 				parsed, err := lib.Unmarshal(data)
 				if err != nil {
 					return err
 				}
-
-				// Then marshal it back
 				_, err = lib.Marshal(parsed)
 				return err
 			} else if operation == "roundtrip" {
 				parsed, err := lib.Unmarshal(data)
 				if err != nil {
-					log.Printf("Roundtrip error (first unmarshal) for file %s with %s: %v", file, lib.Name(), err)
 					return err
 				}
-
 				marshaled, err := lib.Marshal(parsed)
 				if err != nil {
-					log.Printf("Roundtrip error (marshal) for file %s with %s: %v", file, lib.Name(), err)
 					return err
 				}
-
-				// Parse again to verify
 				_, err = lib.Unmarshal(marshaled)
-				if err != nil {
-					log.Printf("Roundtrip error (second unmarshal) for file %s with %s: %v", file, lib.Name(), err)
-					return err
-				}
-				return nil
+				return err
 			}
 			return nil
 		}
 
-		// Execute the file processing and handle any errors
 		if err := processFile(); err != nil {
 			errors++
 			log.Printf("Error processing file %s with %s: %v", file, lib.Name(), err)
@@ -232,7 +221,6 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 	if success > 0 {
 		avgTime = totalTime / time.Duration(success)
 	}
-
 	throughput := 0.0
 	if totalTime > 0 {
 		throughput = float64(success) / totalTime.Seconds()
@@ -250,12 +238,12 @@ func runBenchmark(lib LibraryBenchmark, files []string, operation string) Benchm
 	}
 }
 
+// printResults displays benchmark results in console
 func printResults(results []BenchmarkResult) {
 	fmt.Println("\n" + strings.Repeat("=", 100))
 	fmt.Println("YAML LIBRARY BENCHMARK RESULTS")
 	fmt.Println(strings.Repeat("=", 100))
 
-	// Group by operation
 	operations := make(map[string][]BenchmarkResult)
 	for _, r := range results {
 		operations[r.Operation] = append(operations[r.Operation], r)
@@ -268,7 +256,6 @@ func printResults(results []BenchmarkResult) {
 			"Library", "Total Time", "Avg Time", "Success", "Errors", "Throughput")
 		fmt.Println(strings.Repeat("-", 100))
 
-		// Sort by total time (fastest first)
 		sort.Slice(opResults, func(i, j int) bool {
 			return opResults[i].TotalTime < opResults[j].TotalTime
 		})
@@ -294,43 +281,54 @@ func printResults(results []BenchmarkResult) {
 	fmt.Println(strings.Repeat("=", 100))
 }
 
+// generateDatasetSection generates markdown section for a single dataset with embedded SVGs
+// Uses user-provided functions: createSimpleSVG, createCombinedSVG
+func generateDatasetSection(results []BenchmarkResult, files []string, datasetName string) string {
+	var sb strings.Builder
 
-// generateSummary generates a markdown summary with embedded SVG plots
-func generateSummary(results []BenchmarkResult, files []string, datasetName string) string {
-	summary := fmt.Sprintf("## %s\n\n", datasetName)
-	summary += fmt.Sprintf("**Date:** %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	summary += fmt.Sprintf("**Total Files:** %d\n\n", len(files))
+	sb.WriteString(fmt.Sprintf("## %s\n\n", datasetName))
+	sb.WriteString(fmt.Sprintf("**Date:** %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString(fmt.Sprintf("**Total Files:** %d\n\n", len(files)))
 
-	// Group by operation
 	operations := make(map[string][]BenchmarkResult)
 	for _, r := range results {
 		operations[r.Operation] = append(operations[r.Operation], r)
 	}
 
-	// Generate markdown content for each operation
 	for op, opResults := range operations {
 		sort.Slice(opResults, func(i, j int) bool {
 			return opResults[i].TotalTime < opResults[j].TotalTime
 		})
 
-		summary += fmt.Sprintf("### %s\n\n", strings.ToUpper(op))
+		sb.WriteString(fmt.Sprintf("### %s\n\n", strings.ToUpper(op)))
 
-		summary += "| Library | Total Time | Avg Time | Success | Errors | Throughput |\n"
-		summary += "|---------|------------|----------|---------|--------|------------|\n"
+		// Embed SVG using user-provided createSimpleSVG function
+		svgContent := createSimpleSVG(opResults, op)
+		sb.WriteString(fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n", svgContent))
+		sb.WriteString(fmt.Sprintf("<p align=\"center\"><em>Figure: %s performance comparison</em></p>\n\n", strings.ToUpper(op)))
+
+		sb.WriteString("| Library | Total Time | Avg Time | Success | Errors | Throughput |\n")
+		sb.WriteString("|---------|------------|----------|---------|--------|------------|\n")
 
 		for _, r := range opResults {
-			summary += fmt.Sprintf("| %s | %v | %v | %d | %d | %.2f files/s |\n",
+			sb.WriteString(fmt.Sprintf("| %s | %v | %v | %d | %d | %.2f files/s |\n",
 				r.Library,
 				r.TotalTime.Round(time.Millisecond),
 				r.AvgTime.Round(time.Microsecond),
 				r.SuccessCount,
 				r.ErrorCount,
-				r.Throughput)
+				r.Throughput))
 		}
-		summary += "\n"
+		sb.WriteString("\n")
 	}
-	summary += "---\n\n"
-	return summary
+
+	// Add combined comparison with user-provided createCombinedSVG function
+	sb.WriteString("### Combined Comparison\n\n")
+	combinedSVG := createCombinedSVG(results, operations)
+	sb.WriteString(fmt.Sprintf("<div align=\"center\">\n%s\n</div>\n", combinedSVG))
+	sb.WriteString("\n---\n\n")
+
+	return sb.String()
 }
 
 func main() {
@@ -339,18 +337,17 @@ func main() {
 		log.Printf("Error creating output directory: %v", err)
 	}
 
-	// Create error log file
+	// Setup error logging to both stderr and file
 	errorLogFile, err := os.OpenFile("output/error.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Printf("Error creating error log file: %v", err)
 	} else {
 		defer errorLogFile.Close()
-		// Create multi-writer for log: both stderr and file
 		multiWriter := io.MultiWriter(os.Stderr, errorLogFile)
 		log.SetOutput(multiWriter)
 	}
 
-	// Get the executable path to calculate relative paths
+	// Resolve data directory path
 	exePath, err := os.Executable()
 	if err != nil {
 		log.Fatalf("Failed to get executable path: %v", err)
@@ -366,13 +363,13 @@ func main() {
 
 	fmt.Printf("Scanning datasets in: %s\n", dataDir)
 
-	// Read all subdirectories in dataDir
+	// Read subdirectories in dataDir
 	entries, err := os.ReadDir(dataDir)
 	if err != nil {
 		log.Fatalf("Error reading data directory: %v", err)
 	}
 
-	// Filter and collect dataset directories
+	// Collect dataset directories
 	var datasets []string
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -393,12 +390,7 @@ func main() {
 
 	operations := []string{"unmarshal", "marshal", "roundtrip"}
 
-	// Create output directory
-	if err := os.MkdirAll("output", 0755); err != nil {
-		log.Printf("Error creating output directory: %v", err)
-	}
-
-	// Start building the master README content
+	// Initialize master README content
 	var readmeContent strings.Builder
 	readmeContent.WriteString("# YAML Library Benchmark Results\n\n")
 	readmeContent.WriteString(fmt.Sprintf("**Generated:** %s\n", time.Now().Format("2006-01-02 15:04:05")))
@@ -409,71 +401,65 @@ func main() {
 	readmeContent.WriteString(fmt.Sprintf("- **CPU Cores:** %d\n\n", runtime.NumCPU()))
 	readmeContent.WriteString("## Results by Dataset\n\n")
 
-	// Progress over datasets
+	// Process each dataset sequentially - NO mixing of results
 	for dsIdx, datasetName := range datasets {
 		showProgress(dsIdx+1, len(datasets), "Dataset")
 
 		yamlDir := filepath.Join(dataDir, datasetName)
-
 		if _, err := os.Stat(yamlDir); os.IsNotExist(err) {
 			continue
 		}
 
 		fmt.Printf("\n[%d/%d] Processing dataset: %s\n", dsIdx+1, len(datasets), datasetName)
-		fmt.Printf("Scanning YAML files in: %s\n", yamlDir)
 
+		// Collect YAML files using user-provided function
 		files, err := collectYAMLFiles(yamlDir)
 		if err != nil {
 			log.Printf("Error scanning YAML files in %s: %v", datasetName, err)
 			continue
 		}
-
 		if len(files) == 0 {
-			log.Printf("No YAML files found in %s, skipping\n", datasetName)
+			fmt.Printf("No YAML files in %s, skipping\n", datasetName)
 			continue
 		}
+		fmt.Printf("Found %d YAML files\n", len(files))
 
-		fmt.Printf("Found %d YAML files for benchmarking\n", len(files))
-
-		var allResults []BenchmarkResult
-
-		fmt.Println("\nStarting benchmarks...")
-		fmt.Println(strings.Repeat("-", 100))
-
+		// Run benchmarks for this dataset only
+		var datasetResults []BenchmarkResult
 		for _, lib := range libraries {
-			fmt.Printf("\nBenchmarking: %s\n", lib.Name())
-
 			for _, op := range operations {
-				fmt.Printf("  Running %s... ", op)
 				result := runBenchmark(lib, files, op)
-				allResults = append(allResults, result)
-				fmt.Printf("Done (Success: %d/%d, Time: %v)\n",
-					result.SuccessCount, result.TotalFiles, result.TotalTime.Round(time.Millisecond))
+				datasetResults = append(datasetResults, result)
 			}
 		}
 
-		printResults(allResults)
+		// Print results to console
+		printResults(datasetResults)
 
-		// Save results to JSON file for this dataset
-		jsonData, err := json.MarshalIndent(allResults, "", "  ")
+		// Save JSON for this dataset ONLY (separate file)
+		jsonData, err := json.MarshalIndent(datasetResults, "", "  ")
 		if err != nil {
-			log.Printf("Error marshaling results to JSON: %v", err)
+			log.Printf("Error marshaling results for %s: %v", datasetName, err)
 		} else {
-			outputPath := fmt.Sprintf("output/%s_results.json", datasetName)
-			if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
-				log.Printf("Error writing results to file: %v", err)
+			jsonPath := fmt.Sprintf("output/%s_results.json", datasetName)
+			if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+				log.Printf("Error writing JSON for %s: %v", datasetName, err)
 			} else {
-				fmt.Printf("\nResults saved to: %s\n", outputPath)
+				fmt.Printf("Saved: %s\n", jsonPath)
 			}
 		}
 
-		// Append this dataset's summary to the master README
-		readmeContent.WriteString(generateSummary(allResults, files, datasetName))
+		// Generate and append this dataset's section to master README
+		// Results are NOT combined with other datasets
+		datasetSection := generateDatasetSection(datasetResults, files, datasetName)
+		readmeContent.WriteString(datasetSection)
+
+		fmt.Printf("✅ Completed dataset: %s\n", datasetName)
 	}
 
 	fmt.Printf("\n")
 
-	// Write the unified README.md
+	// Write the unified README.md with all dataset sections appended sequentially
 	readmePath := "output/README.md"
 	if err := os.WriteFile(readmePath, []byte(readmeContent.String()), 0644); err != nil {
 		log.Printf("Error writing README: %v", err)
