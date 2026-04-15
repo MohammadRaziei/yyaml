@@ -1,6 +1,11 @@
 # yyaml 
 
-![yyaml-logo](docs/static/img/yyaml.svg)
+<!-- ![yyaml-logo](docs/static/img/yyaml.svg) -->
+
+<img src="docs/static/img/yyaml-tile.svg" width=400>
+
+<!-- <div style="display:block;width:400px;height:20px;background-image:url(docs/static/img/yyaml-tile.svg);background-repeat:repeat;background-size:.;"></div> -->
+
 
 yyaml is a high-performance YAML parser and emitter written in C with ergonomic C++ bindings. It is optimized for speed and low memory usage, inspired by the architecture of yyjson, and designed to slot into latency-sensitive systems.
 
